@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.60] - 2026-01-25
+
+### Removed - Dead Code Cleanup
+- Removed unused `_import_trusted_source` method from download.py
+- Method was never called - Qobuz downloads always use beets via `_import_album`
+
+---
+
 ## [0.1.59] - 2026-01-25
 
 ### Fixed - SMB Folder Detection
@@ -11,10 +19,9 @@
 
 ## [0.1.58] - 2026-01-25
 
-### Changed - Qobuz Auto-Import
-- Qobuz downloads now auto-import without beets identification (trusted source)
-- Uses embedded metadata directly from Qobuz FLAC files
-- Skips MusicBrainz lookup - no more review queue for Qobuz downloads
+### Changed - Qobuz Import Pipeline
+- Qobuz downloads skip confidence threshold (min_confidence=0.0) so never go to review queue
+- Beets still runs for metadata, artwork, and lyrics
 - Added missing await for async import_service methods
 - Added missing columns to tracks table (lyrics, musicbrainz_id, updated_at)
 
