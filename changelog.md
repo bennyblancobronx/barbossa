@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.56] - 2026-01-25
+
+### Fixed - Streamrip Download Command
+- Removed invalid --quality and --output flags from rip url command
+- Streamrip config now syncs download folder to /music/downloads/qobuz
+- Config persists via barbossa_streamrip Docker volume
+
+---
+
 ## [0.1.55] - 2026-01-25
 
 ### Fixed - Downloads Queue
