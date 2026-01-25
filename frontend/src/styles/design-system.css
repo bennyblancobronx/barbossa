@@ -2737,6 +2737,12 @@ body {
   gap: var(--space-4);
 }
 
+.error-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
 .spinner {
   width: 24px;
   height: 24px;
@@ -2932,5 +2938,860 @@ body {
   .external-result-item .btn-primary {
     width: 100%;
     margin-top: var(--space-2);
+  }
+}
+
+/* ==========================================================================
+   QOBUZ CATALOG BROWSING
+   ========================================================================== */
+
+/* Results Grid */
+.qobuz-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+
+.qobuz-album-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.qobuz-album-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.qobuz-album-artwork {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--color-surface);
+}
+
+.qobuz-album-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Quality Badge */
+.quality-badge {
+  position: absolute;
+  bottom: var(--space-2);
+  right: var(--space-2);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+}
+
+.quality-badge.hires {
+  background: var(--color-accent);
+}
+
+/* In Library Badge */
+.in-library-badge {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  background: var(--color-success);
+  color: white;
+  text-transform: uppercase;
+}
+
+.qobuz-album-info {
+  padding: var(--space-3);
+}
+
+.qobuz-album-info .album-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0 0 var(--space-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.qobuz-album-info .album-artist {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-1);
+}
+
+.qobuz-album-info .album-artist a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.qobuz-album-info .album-artist a:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.qobuz-album-info .album-meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.qobuz-album-actions {
+  padding: 0 var(--space-3) var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+}
+
+.qobuz-album-actions button {
+  flex: 1;
+  font-size: var(--text-sm);
+  padding: var(--space-2);
+}
+
+/* Artist Cards (search results) */
+.qobuz-artists-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.qobuz-artist-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.qobuz-artist-card:hover {
+  background: var(--color-hover-overlay);
+}
+
+.qobuz-artist-card .artist-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface-elevated);
+  flex-shrink: 0;
+}
+
+.qobuz-artist-card .artist-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qobuz-artist-card .image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
+  font-size: var(--text-xl);
+}
+
+.qobuz-artist-card .artist-info h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.qobuz-artist-card .artist-info p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Track Results */
+.qobuz-tracks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.qobuz-track-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.qobuz-track-item .track-artwork {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-surface-elevated);
+  flex-shrink: 0;
+}
+
+.qobuz-track-item .track-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qobuz-track-item .artwork-placeholder-sm {
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface-elevated);
+}
+
+.qobuz-track-item .track-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qobuz-track-item .track-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.qobuz-track-item .track-artist {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.qobuz-track-item .track-album {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.quality-badge-sm {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.quality-badge-sm.hires {
+  background: var(--color-accent);
+  color: white;
+}
+
+/* Button Sizes */
+.btn-sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* Qobuz Mobile Responsive */
+@media (max-width: 768px) {
+  .qobuz-results-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .qobuz-album-actions {
+    flex-direction: column;
+  }
+
+  .qobuz-artist-card {
+    padding: var(--space-2);
+  }
+
+  .qobuz-artist-card .artist-image {
+    width: 48px;
+    height: 48px;
+  }
+
+  .qobuz-track-item {
+    flex-wrap: wrap;
+  }
+
+  .qobuz-track-item .btn-sm {
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+}
+
+/* ==========================================================================
+   QOBUZ ARTIST PAGE
+   ========================================================================== */
+
+.page-qobuz-artist {
+  padding: var(--space-6);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+/* Breadcrumb Navigation */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  font-size: var(--text-sm);
+}
+
+.breadcrumb-sep {
+  color: var(--color-text-muted);
+}
+
+.breadcrumb-link {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.breadcrumb-link:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.breadcrumb-current {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+/* Artist Header */
+.artist-header {
+  display: flex;
+  gap: var(--space-8);
+  margin-bottom: var(--space-10);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.artist-image-large {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.artist-image-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.artist-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.artist-details .label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.artist-details h1 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+}
+
+.artist-details .album-count {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-muted);
+}
+
+/* Discography Section */
+.discography {
+  margin-bottom: var(--space-10);
+}
+
+.discography .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-6);
+}
+
+.discography .section-header h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* Sort Options */
+.sort-options {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.sort-options label {
+  color: var(--color-text-muted);
+}
+
+.sort-options select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+}
+
+.sort-options select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Albums Grid (discography) */
+.albums-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-6);
+}
+
+.album-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.album-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.album-card .album-artwork {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.album-card .album-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.album-card .album-info {
+  padding: var(--space-3);
+}
+
+.album-card .album-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-card .album-title.clickable {
+  cursor: pointer;
+}
+
+.album-card .album-title.clickable:hover {
+  color: var(--color-accent);
+}
+
+.album-card .album-year {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.album-card .album-meta {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.album-card .album-actions {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  display: flex;
+  justify-content: center;
+}
+
+/* Biography Section */
+.biography {
+  margin-bottom: var(--space-10);
+}
+
+.biography h2 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.biography-content {
+  font-size: var(--text-base);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
+  max-width: 800px;
+}
+
+.biography-content p {
+  margin: 0 0 var(--space-4);
+}
+
+.biography-content a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.biography-content a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive - Artist Page */
+@media (max-width: 768px) {
+  .page-qobuz-artist {
+    padding: var(--space-4);
+  }
+
+  .artist-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-4);
+  }
+
+  .artist-image-large {
+    width: 160px;
+    height: 160px;
+  }
+
+  .artist-details h1 {
+    font-size: var(--text-2xl);
+  }
+
+  .discography .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .albums-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .breadcrumbs {
+    flex-wrap: wrap;
+    font-size: var(--text-xs);
+  }
+}
+
+/* ========================================
+   QOBUZ ALBUM PAGE
+   ======================================== */
+
+.page-qobuz-album {
+  padding: var(--space-6);
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+/* Album Header */
+.album-header {
+  display: flex;
+  gap: var(--space-8);
+  margin-bottom: var(--space-10);
+}
+
+.album-artwork-large {
+  width: 250px;
+  height: 250px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.album-artwork-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.album-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.album-details .label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.album-details h1 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+}
+
+.album-details .artist-link {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-lg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.album-details .artist-link:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.album-details .album-meta {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.album-extra-meta {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.genre-tag,
+.label-tag {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.quality-info {
+  margin-bottom: var(--space-5);
+}
+
+.quality-info .quality-badge {
+  position: static;
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.quality-info .quality-badge.hires {
+  background: var(--color-accent);
+  color: white;
+}
+
+.quality-info .quality-badge.cd {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.in-library-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.in-library-badge.large {
+  position: static;
+  display: inline-block;
+  width: fit-content;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  background: var(--color-success);
+  color: white;
+}
+
+.btn-large {
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--text-base);
+}
+
+/* Track Listing Section */
+.track-listing {
+  margin-bottom: var(--space-10);
+}
+
+.track-listing h2 {
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+/* Disc Sections (Multi-disc albums) */
+.disc-section {
+  margin-bottom: var(--space-8);
+}
+
+.disc-header {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+/* Tracks Table */
+.tracks-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tracks-table th {
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.tracks-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.tracks-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.tracks-table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.col-num {
+  width: 50px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.col-duration {
+  width: 80px;
+  text-align: right;
+  color: var(--color-text-muted);
+}
+
+.col-quality {
+  width: 80px;
+  text-align: right;
+}
+
+.quality-indicator {
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.quality-indicator.hires {
+  background: var(--color-accent);
+  color: white;
+}
+
+.quality-indicator.cd {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+/* Responsive - Album Page */
+@media (max-width: 768px) {
+  .page-qobuz-album {
+    padding: var(--space-4);
+  }
+
+  .album-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-4);
+  }
+
+  .album-artwork-large {
+    width: 200px;
+    height: 200px;
+  }
+
+  .album-details h1 {
+    font-size: var(--text-2xl);
+  }
+
+  .album-details .album-meta {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .album-extra-meta {
+    justify-content: center;
+  }
+
+  .in-library-notice {
+    align-items: center;
+  }
+
+  .tracks-table {
+    font-size: var(--text-xs);
+  }
+
+  .tracks-table th,
+  .tracks-table td {
+    padding: var(--space-2);
+  }
+
+  .col-quality {
+    display: none;
   }
 }

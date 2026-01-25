@@ -1,5 +1,282 @@
 # Changelog
 
+## [0.1.51] - 2026-01-25
+
+### Fixed - Database Migration Chain
+- Fixed alembic migration chain (006 down_revision pointed to wrong revision id)
+- Added migration 007 for missing celery_task_id column in downloads table
+- All migrations now run cleanly from scratch
+
+### Verified - Qobuz API Live Testing
+Live API endpoint testing completed:
+- GET /api/qobuz/search - Returns albums with artwork URLs, quality badges
+- GET /api/qobuz/artist/{id} - Returns full discography (tested: Pink Floyd 138 albums)
+- GET /api/qobuz/album/{id} - Returns track listing with hi-res indicators
+- Authentication required on all endpoints (JWT)
+- Response includes in_library flag for local albums
+
+---
+
+## [0.1.50] - 2026-01-25
+
+### Completed - Qobuz API Integration (Phase 8 - Testing and Polish)
+Full Qobuz catalog browsing feature complete and tested.
+
+### Test Coverage
+- 27 Qobuz-specific tests (12 API client + 15 routes)
+- 112 total backend tests passing
+- All error handling verified
+
+### Phase 8 Verification Checklist
+- [x] Search artist returns results with images
+- [x] Artist discography shows all albums with artwork and quality badges
+- [x] Album page shows track listing with quality indicators
+- [x] Multi-disc albums display with disc section headers
+- [x] Download button starts download and shows notification
+- [x] "In Library" badges show on already-downloaded albums
+- [x] Error states display with Retry button
+- [x] API errors return proper 502 status
+- [x] Invalid credentials show appropriate error message
+- [x] Lazy loading enabled for images
+- [x] Response caching (5 min TTL) reduces API calls
+- [x] Rate limiting (50 req/min) prevents blocks
+
+### Files Verified
+- backend/app/integrations/qobuz_api.py - API client with auth, caching, rate limiting
+- backend/app/api/qobuz.py - REST endpoints with in_library detection
+- backend/tests/test_qobuz_api.py - 12 API client tests
+- backend/tests/test_qobuz_routes.py - 15 route tests
+- frontend/src/pages/Search.jsx - Qobuz search with artwork grid
+- frontend/src/pages/QobuzArtist.jsx - Artist discography page
+- frontend/src/pages/QobuzAlbum.jsx - Album detail page with tracks
+- frontend/src/styles/qobuz.css - Dedicated stylesheet
+- frontend/public/placeholder-album.svg - Fallback image
+- frontend/public/placeholder-artist.svg - Fallback image
+
+---
+
+## [0.1.49] - 2026-01-25
+
+### Added - Qobuz Styling (Phase 7)
+- Dedicated qobuz.css stylesheet for all Qobuz catalog browsing components
+- Uses Barbossa design system tokens (spacing, colors, typography, transitions)
+- Full responsive design for mobile devices
+
+### Styles Added
+- Search results grid with hover effects
+- Album cards with artwork, quality badges, and actions
+- Artist cards in search results
+- Track list items with artwork thumbnails
+- Artist page header and discography grid
+- Album page header and track listing table
+- Multi-disc album support with disc section headers
+- Breadcrumb navigation
+- In-library badges
+- Sort options dropdown
+- Quality indicators (Hi-Res, CD)
+- Button variants (btn-sm, btn-large)
+
+### Files Created
+- frontend/src/styles/qobuz.css
+
+### Files Modified
+- frontend/src/index.jsx - Import qobuz.css
+
+---
+
+## [0.1.48] - 2026-01-25
+
+### Added - Qobuz Album Detail Page (Phase 6)
+- QobuzAlbum.jsx - View album tracks before downloading
+- Album header with large artwork, artist link, year, track count, total duration
+- Quality badge showing Hi-Res (bit depth/sample rate) or CD quality
+- Genre and label tags display
+- Multi-disc album support with disc section headers
+- Track listing table with track number, title, duration, quality indicator
+- Download button (or "Already in Library" badge if downloaded)
+- Breadcrumb navigation (Back / Artist / Album)
+- Responsive design for mobile
+
+### Files Created
+- frontend/src/pages/QobuzAlbum.jsx
+
+### Files Modified
+- frontend/src/App.jsx - Added /qobuz/album/:albumId route
+- frontend/src/styles/design-system.css - Album page styles (header, tracks table, disc sections)
+
+---
+
+## [0.1.47] - 2026-01-25
+
+### Added - Qobuz Artist Discography Page (Phase 5)
+- QobuzArtist.jsx - Browse artist's full catalog with artwork
+- Artist header with large image and album count
+- Discography grid with all albums showing artwork and quality badges
+- Sort options (year/title)
+- Quick download button per album
+- "In Library" badges for albums already downloaded
+- Biography section (if available from Qobuz)
+- Breadcrumb navigation
+- Responsive design for mobile
+
+### Files Created
+- frontend/src/pages/QobuzArtist.jsx
+
+### Files Modified
+- frontend/src/App.jsx - Added /qobuz/artist/:artistId route
+- frontend/src/styles/design-system.css - Artist page styles (breadcrumbs, header, grid)
+
+---
+
+## [0.1.46] - 2026-01-25
+
+### Fixed - Phase 4 Audit Items
+- Added placeholder SVGs for missing album/artist images
+- Added Qobuz search error state with Retry button
+- Standardized image placeholders to use SVG fallbacks instead of text
+
+### Files Created
+- frontend/public/placeholder-album.svg - Vinyl record placeholder
+- frontend/public/placeholder-artist.svg - Person silhouette placeholder
+
+### Files Modified
+- frontend/src/pages/Search.jsx - Error handling, standardized placeholders
+- frontend/src/styles/design-system.css - Added .error-actions styling
+
+---
+
+## [0.1.45] - 2026-01-25
+
+### Updated - Search Page Qobuz Display (Phase 4)
+- Search page now uses searchQobuzCatalog endpoint (artwork URLs, in_library status)
+- Album search results display in responsive grid with artwork
+- Quality badges show hi-res bit depth/sample rate (e.g., 24/192)
+- "In Library" badges on albums already downloaded
+- Artist names link to /qobuz/artist/{id} discography page
+- "View Tracks" button links to /qobuz/album/{id} detail page
+- Artist search results display with images and album counts
+- Track search results display with album artwork thumbnails
+
+### Files Modified
+- frontend/src/pages/Search.jsx - Updated Qobuz query and results display
+- frontend/src/styles/design-system.css - Added Qobuz catalog CSS (grid, cards, badges)
+
+---
+
+## [0.1.44] - 2026-01-25
+
+### Added - Qobuz Frontend API Service (Phase 3)
+- searchQobuzCatalog() - Search Qobuz catalog with artwork URLs
+- getQobuzArtist() - Get artist details with full discography, sort option
+- getQobuzAlbum() - Get album details with track listing
+
+### Files Modified
+- frontend/src/services/api.js - Added 3 new Qobuz catalog browsing functions
+
+---
+
+## [0.1.43] - 2026-01-25
+
+### Fixed - Qobuz Phase 2 Audit Items
+- preview_url now constructs actual Qobuz streaming URL when track is previewable
+- Library check filter now uses SQLAlchemy has() for cleaner relationship query
+- Removed unused Artist model import from qobuz.py
+
+### Files Modified
+- backend/app/integrations/qobuz_api.py - preview_url now generates URL from previewable flag
+- backend/app/api/qobuz.py - check_albums_in_library uses has() filter, removed unused import
+
+### Test Status
+- 27 Qobuz tests passing
+
+---
+
+## [0.1.42] - 2026-01-25
+
+### Added - Qobuz API Routes (Phase 2)
+- backend/app/api/qobuz.py - REST endpoints for Qobuz catalog browsing
+- GET /api/qobuz/search - Search albums, artists, or tracks with artwork URLs
+- GET /api/qobuz/artist/{id} - Artist details with full discography
+- GET /api/qobuz/album/{id} - Album details with track listing
+- All endpoints include `in_library` flag for albums already in local library
+- Artist discography supports sorting by year (default) or title
+- Normalized matching for library detection (ignores case, deluxe editions, etc.)
+- backend/tests/test_qobuz_routes.py - 15 tests for Qobuz endpoints
+
+### Files Created
+- backend/app/api/qobuz.py
+- backend/tests/test_qobuz_routes.py
+
+### Files Modified
+- backend/app/api/__init__.py - Added qobuz router
+
+### Test Status
+- 112 tests passing (97 existing + 15 new)
+
+---
+
+## [0.1.41] - 2026-01-25
+
+### Fixed - Qobuz API Tests, Region Support, App Credentials
+- Tests now skip when Qobuz not fully configured (credentials + app_id)
+- Added `reset_qobuz_api()` function for test isolation
+- Fixed singleton pattern to support multiple regions
+- `get_qobuz_api(region="uk")` now creates region-specific instances
+- Added configurable QOBUZ_APP_ID and QOBUZ_APP_SECRET env vars
+- Auto-extracts app credentials from streamrip config if available
+- Fixed .env loading to check parent directory (barbossa/.env)
+
+### Files Modified
+- backend/app/config.py - Added qobuz_app_id, qobuz_app_secret; env_file tuple
+- backend/app/integrations/qobuz_api.py - Configurable app credentials, streamrip extraction
+- backend/tests/test_qobuz_api.py - Skip markers check both user and app credentials
+
+### Test Status
+- 12 passed (all tests including integration tests)
+
+### Qobuz Setup Completed
+- Streamrip configured with valid app_id (798273057) and secrets
+- Credentials stored in ~/Library/Application Support/streamrip/config.toml
+- QobuzAPI auto-extracts app credentials from streamrip config
+
+---
+
+## [0.1.40] - 2026-01-25
+
+### Added - Qobuz API Client (Phase 1)
+- backend/app/integrations/qobuz_api.py - Direct Qobuz API client for catalog browsing
+- Enables fetching album/artist artwork URLs (not available via streamrip CLI)
+- Features: search albums/artists/tracks, get artist discography, get album track listing
+- Includes rate limiting (50 req/min), response caching (5 min TTL)
+- Uses existing Qobuz credentials from settings (qobuz_email, qobuz_password)
+- Streamrip still handles actual downloads
+- backend/tests/test_qobuz_api.py - Integration tests
+
+---
+
+## [0.1.39] - 2026-01-25
+
+### Added - Qobuz API Implementation Guide
+- docs/qobuz-api-implementation-guide.md - 8-phase guide for direct Qobuz API integration
+- Enables browsing artist discographies with album artwork before downloading
+- Covers: backend API client, routes, frontend pages (artist, album), styles
+- Uses existing Qobuz credentials (no new API key needed)
+- Streamrip still used for actual downloads (handles DRM)
+
+### Audit Fixes Added to Guide
+- Rate limiting (50 req/min to avoid Qobuz blocks)
+- Response caching (5 min TTL for artist/album data)
+- "Already in Library" badges on albums
+- Multi-disc album handling with disc headers
+- Sort options for artist discography (year/title)
+- Breadcrumb navigation on artist/album pages
+- Image error fallbacks with placeholder SVGs
+- Genre and label display on album pages
+- User authentication required on all endpoints
+- httpx dependency documented
+
+---
+
 ## [0.1.38] - 2026-01-25
 
 ### Fixed - Qobuz Search Not Working

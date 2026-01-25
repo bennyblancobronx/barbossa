@@ -41,14 +41,16 @@ export default function Search() {
   )
 
   // External search (Qobuz) - only when triggered
+  // Uses new searchQobuzCatalog endpoint with artwork URLs
   const {
     data: qobuzResults,
     isLoading: qobuzLoading,
+    error: qobuzError,
     refetch: searchQobuz
   } = useQuery(
     ['search-qobuz', query, type],
-    () => api.searchQobuz(query, type).then(r => r.data.items || r.data || []),
-    { enabled: false }
+    () => api.searchQobuzCatalog(query, type).then(r => r.data),
+    { enabled: false, retry: 1 }
   )
 
   // Download mutation
@@ -216,7 +218,7 @@ export default function Search() {
         </section>
       )}
 
-      {/* External Results (Qobuz) */}
+      {/* External Results (Qobuz) - Updated with artwork grid */}
       {showExternal && externalSource === 'qobuz' && (
         <section className="search-section">
           <div className="section-header">
@@ -236,49 +238,174 @@ export default function Search() {
             </div>
           )}
 
-          {!qobuzLoading && qobuzResults && qobuzResults.length > 0 && (
-            <div className="external-results">
-              {qobuzResults.map(result => (
-                <div key={result.id} className="external-result-item">
-                  {result.artwork_url && (
+          {/* Qobuz Error State */}
+          {!qobuzLoading && qobuzError && (
+            <div className="error-state">
+              <p className="text-error">
+                {qobuzError.response?.data?.detail || 'Qobuz search failed'}
+              </p>
+              <div className="error-actions">
+                <button className="btn-primary" onClick={() => searchQobuz()}>
+                  Retry
+                </button>
+                <button className="btn-ghost" onClick={() => setShowExternal(false)}>
+                  Back to options
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Album Results Grid */}
+          {!qobuzLoading && qobuzResults?.albums?.length > 0 && (
+            <div className="qobuz-results-grid">
+              {qobuzResults.albums.map(album => (
+                <div key={album.id} className="qobuz-album-card">
+                  {/* Album Artwork */}
+                  <div className="qobuz-album-artwork">
                     <img
-                      src={result.artwork_url}
-                      alt=""
-                      className="external-result-artwork"
+                      src={album.artwork_url || '/placeholder-album.svg'}
+                      alt={album.title}
+                      loading="lazy"
+                      onError={(e) => {
+                        e.target.onerror = null
+                        e.target.src = '/placeholder-album.svg'
+                      }}
                     />
-                  )}
-                  <div className="external-result-info">
-                    <span className="external-result-title">{result.title}</span>
-                    <span className="external-result-artist">
-                      {result.artist || result.artist_name}
-                    </span>
-                    <div className="external-result-meta">
-                      {result.year && (
-                        <span className="external-result-year">{result.year}</span>
-                      )}
-                      {result.quality && (
-                        <span className="external-result-quality badge">
-                          {result.quality}
-                        </span>
-                      )}
-                    </div>
+
+                    {/* Quality Badge */}
+                    {album.hires && (
+                      <span className="quality-badge hires">
+                        {album.maximum_bit_depth}/{album.maximum_sampling_rate}
+                      </span>
+                    )}
+
+                    {/* In Library Badge */}
+                    {album.in_library && (
+                      <span className="in-library-badge" title="Already in your library">
+                        In Library
+                      </span>
+                    )}
                   </div>
+
+                  {/* Album Info */}
+                  <div className="qobuz-album-info">
+                    <h3 className="album-title">{album.title}</h3>
+                    <p className="album-artist">
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          navigate(`/qobuz/artist/${album.artist_id}`)
+                        }}
+                      >
+                        {album.artist_name}
+                      </a>
+                    </p>
+                    <p className="album-meta">
+                      {album.year} | {album.track_count} tracks
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="qobuz-album-actions">
+                    <button
+                      className="btn-secondary"
+                      onClick={() => navigate(`/qobuz/album/${album.id}`)}
+                    >
+                      View Tracks
+                    </button>
+                    {album.in_library ? (
+                      <button
+                        className="btn-ghost"
+                        onClick={() => navigate(`/album/${album.local_album_id}`)}
+                      >
+                        View in Library
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-primary"
+                        onClick={() => downloadMutation.mutate({
+                          url: album.url,
+                          source: 'qobuz'
+                        })}
+                        disabled={downloadMutation.isLoading}
+                      >
+                        Download
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Artist Results */}
+          {!qobuzLoading && qobuzResults?.artists?.length > 0 && (
+            <div className="qobuz-artists-list">
+              {qobuzResults.artists.map(artist => (
+                <div
+                  key={artist.id}
+                  className="qobuz-artist-card"
+                  onClick={() => navigate(`/qobuz/artist/${artist.id}`)}
+                >
+                  <div className="artist-image">
+                    {artist.image_url ? (
+                      <img
+                        src={artist.image_url}
+                        alt={artist.name}
+                        onError={(e) => {
+                          e.target.onerror = null
+                          e.target.src = '/placeholder-artist.svg'
+                        }}
+                      />
+                    ) : (
+                      <img src="/placeholder-artist.svg" alt="" />
+                    )}
+                  </div>
+                  <div className="artist-info">
+                    <h3>{artist.name}</h3>
+                    <p>{artist.album_count} albums</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Track Results */}
+          {!qobuzLoading && qobuzResults?.tracks?.length > 0 && (
+            <div className="qobuz-tracks-list">
+              {qobuzResults.tracks.map(track => (
+                <div key={track.id} className="qobuz-track-item">
+                  <div className="track-artwork">
+                    <img
+                      src={track.album_artwork || '/placeholder-album.svg'}
+                      alt=""
+                      onError={(e) => {
+                        e.target.onerror = null
+                        e.target.src = '/placeholder-album.svg'
+                      }}
+                    />
+                  </div>
+                  <div className="track-info">
+                    <span className="track-title">{track.title}</span>
+                    <span className="track-artist">{track.artist_name}</span>
+                    <span className="track-album">{track.album_title}</span>
+                  </div>
+                  {track.hires && (
+                    <span className="quality-badge-sm hires">Hi-Res</span>
+                  )}
                   <button
-                    className="btn-primary"
-                    onClick={() => downloadMutation.mutate({
-                      url: result.url,
-                      source: 'qobuz'
-                    })}
-                    disabled={downloadMutation.isLoading}
+                    className="btn-secondary btn-sm"
+                    onClick={() => navigate(`/qobuz/album/${track.album_id}`)}
                   >
-                    {downloadMutation.isLoading ? 'Starting...' : 'Download'}
+                    View Album
                   </button>
                 </div>
               ))}
             </div>
           )}
 
-          {!qobuzLoading && (!qobuzResults || qobuzResults.length === 0) && (
+          {!qobuzLoading && qobuzResults?.count === 0 && (
             <div className="empty-state">
               <p className="text-muted">No results found on Qobuz</p>
               <button

@@ -8,6 +8,8 @@ import UserLibrary from './pages/UserLibrary'
 import Downloads from './pages/Downloads'
 import Settings from './pages/Settings'
 import Search from './pages/Search'
+import QobuzArtist from './pages/QobuzArtist'
+import QobuzAlbum from './pages/QobuzAlbum'
 
 function PrivateRoute({ children }) {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated)
@@ -35,6 +37,8 @@ export default function App() {
         <Route path="my-library" element={<UserLibrary />} />
         <Route path="downloads" element={<Downloads />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="qobuz/artist/:artistId" element={<QobuzArtist />} />
+        <Route path="qobuz/album/:albumId" element={<QobuzAlbum />} />
       </Route>
     </Routes>
   )

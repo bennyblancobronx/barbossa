@@ -1,7 +1,7 @@
 """Remove admin user concept
 
 Revision ID: 006_remove_admin_user
-Revises: 005_album_status_backup_history
+Revises: 005
 Create Date: 2026-01-25
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = '006_remove_admin_user'
-down_revision: Union[str, None] = '005_album_status_backup_history'
+down_revision: Union[str, None] = '005'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

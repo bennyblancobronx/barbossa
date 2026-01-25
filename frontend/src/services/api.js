@@ -90,6 +90,16 @@ export const getDownloads = () =>
 export const cancelDownload = (id) =>
   api.delete(`/downloads/${id}`)
 
+// Qobuz Catalog Browsing
+export const searchQobuzCatalog = (query, type = 'album', limit = 20) =>
+  api.get('/qobuz/search', { params: { q: query, type, limit } })
+
+export const getQobuzArtist = (artistId, sort = 'year') =>
+  api.get(`/qobuz/artist/${artistId}`, { params: { sort } })
+
+export const getQobuzAlbum = (albumId) =>
+  api.get(`/qobuz/album/${albumId}`)
+
 // Admin
 export const getUsers = () =>
   api.get('/admin/users')

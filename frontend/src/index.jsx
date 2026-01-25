@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from 'react-query'
 import App from './App'
 import { useThemeStore } from './stores/theme'
 import './styles/design-system.css'
+import './styles/qobuz.css'
 
 // Initialize theme on app load
 useThemeStore.getState().initTheme()

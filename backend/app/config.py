@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     qobuz_email: str = ""
     qobuz_password: str = ""
     qobuz_quality: int = 4  # 0-4, 4 is max (24/192)
+    qobuz_app_id: str = ""  # Optional: override default app_id
+    qobuz_app_secret: str = ""  # Optional: for request signing
 
     # Lidarr
     lidarr_url: str = ""
@@ -65,7 +67,7 @@ class Settings(BaseSettings):
     log_path: str = ""
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "../.env")  # Check both backend/ and parent dir
         extra = "ignore"
 
 

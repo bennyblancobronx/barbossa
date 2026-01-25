@@ -203,6 +203,35 @@ Downloads are a temporary staging area only. Imported albums land in the master 
 | GET | `/api/downloads/queue` | Get download queue |
 | DELETE | `/api/downloads/{id}` | Cancel download |
 
+### Qobuz Catalog Browsing
+
+Browse Qobuz catalog with artwork before downloading. Requires authentication.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/qobuz/search?q=&type=&limit=` | Search Qobuz catalog (type: album/artist/track) |
+| GET | `/api/qobuz/artist/{id}?sort=` | Get artist discography (sort: year/title) |
+| GET | `/api/qobuz/album/{id}` | Get album with track listing |
+
+**Search Response:**
+```json
+{
+  "query": "Pink Floyd",
+  "type": "album",
+  "count": 2,
+  "albums": [{
+    "id": "u5jzer5t2bmqb",
+    "title": "Wish You Were Here",
+    "artist_name": "Pink Floyd",
+    "artwork_url": "https://static.qobuz.com/.../600.jpg",
+    "hires": true,
+    "maximum_bit_depth": 24,
+    "maximum_sampling_rate": 192.0,
+    "in_library": false
+  }]
+}
+```
+
 ### Import
 
 | Method | Endpoint | Description |
