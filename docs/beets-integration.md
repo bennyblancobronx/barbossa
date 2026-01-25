@@ -31,7 +31,7 @@ Location: `~/.config/beets/config.yaml`
 
 ```yaml
 # Paths
-directory: /music/library
+directory: /music/artists
 library: /config/beets/library.db
 
 # Import settings
@@ -171,7 +171,7 @@ paths:
 
 Produces:
 ```
-/music/library/
+/music/artists/
 └── Pink Floyd/
     └── The Dark Side of the Moon (1973)/
         ├── cover.jpg
@@ -283,7 +283,7 @@ Barbossa triggers: beet import /music/downloads/album
 Beets autotags via MusicBrainz
     |
     v
-Beets moves to /music/library/ with Plex naming
+Beets moves to /music/artists/ with Plex naming
     |
     v
 Beets fetches cover.jpg and lyrics
@@ -412,6 +412,6 @@ environment:
 
 Beets config at `/config/beets/config.yaml`:
 ```yaml
-directory: /music/library
+directory: /music/artists
 library: /config/beets/library.db
 ```

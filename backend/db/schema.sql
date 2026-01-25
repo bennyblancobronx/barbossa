@@ -15,15 +15,9 @@ CREATE TABLE users (
     id              SERIAL PRIMARY KEY,
     username        VARCHAR(50) UNIQUE NOT NULL,
     password_hash   VARCHAR(255) NOT NULL,
-    is_admin        BOOLEAN DEFAULT FALSE,
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
--- Default admin user (password: admin - CHANGE IMMEDIATELY)
--- Password hash is bcrypt of "admin"
-INSERT INTO users (username, password_hash, is_admin) VALUES
-('admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.G/Q.z.Q.z.Q.z.', TRUE);
 
 CREATE INDEX idx_users_username ON users(username);
 
@@ -35,7 +29,7 @@ CREATE TABLE artists (
     name            VARCHAR(255) NOT NULL,
     normalized_name VARCHAR(255) NOT NULL,  -- Lowercase, no punctuation
     sort_name       VARCHAR(255),           -- "Beatles, The" for sorting
-    path            VARCHAR(1000),          -- /music/library/Artist Name
+    path            VARCHAR(1000),          -- /music/artists/Artist Name
     artwork_path    VARCHAR(1000),
     musicbrainz_id  VARCHAR(36),
     created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -56,8 +50,8 @@ CREATE TABLE albums (
     title           VARCHAR(255) NOT NULL,
     normalized_title VARCHAR(255) NOT NULL,  -- Lowercase, no punctuation
     year            INTEGER,
-    path            VARCHAR(1000),          -- /music/library/Artist/Album (Year)
-    artwork_path    VARCHAR(1000),          -- /music/library/Artist/Album (Year)/cover.jpg
+    path            VARCHAR(1000),          -- /music/artists/Artist/Album (Year)
+    artwork_path    VARCHAR(1000),          -- /music/artists/Artist/Album (Year)/cover.jpg
     total_tracks    INTEGER DEFAULT 0,
     available_tracks INTEGER DEFAULT 0,
     disc_count      INTEGER DEFAULT 1,
@@ -254,7 +248,7 @@ CREATE TABLE settings (
 
 -- Default settings
 INSERT INTO settings (key, value) VALUES
-('paths.library', '"/music/library"'),
+('paths.library', '"/music/artists"'),
 ('paths.users', '"/music/users"'),
 ('paths.downloads', '"/music/downloads"'),
 ('paths.import', '"/music/import"'),
@@ -456,7 +450,7 @@ JOIN artists ar ON a.artist_id = ar.id;
 -- ==========================================================================
 -- COMMENTS
 -- ==========================================================================
-COMMENT ON TABLE users IS 'User accounts - admin or regular';
+COMMENT ON TABLE users IS 'User accounts';
 COMMENT ON TABLE artists IS 'Music artists in the library';
 COMMENT ON TABLE albums IS 'Albums in the master library';
 COMMENT ON TABLE tracks IS 'Individual tracks with quality metadata';

@@ -19,7 +19,6 @@ def test_login_success(client, db):
     data = response.json()
     assert "token" in data
     assert data["user"]["username"] == "testuser"
-    assert data["user"]["is_admin"] is False
 
 
 def test_login_invalid_password(client, db):
@@ -58,7 +57,7 @@ def test_get_me_unauthorized(client):
     """Test getting current user without auth."""
     response = client.get("/api/auth/me")
 
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_logout(client, auth_headers):

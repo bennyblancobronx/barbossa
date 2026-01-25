@@ -19,10 +19,7 @@ export function connectWebSocket() {
     // Subscribe to channels
     socket.send(JSON.stringify({ type: 'subscribe', channel: 'activity' }))
     socket.send(JSON.stringify({ type: 'subscribe', channel: 'library' }))
-
-    if (useAuthStore.getState().user?.is_admin) {
-      socket.send(JSON.stringify({ type: 'subscribe', channel: 'downloads' }))
-    }
+    socket.send(JSON.stringify({ type: 'subscribe', channel: 'downloads' }))
   }
 
   socket.onmessage = (event) => {

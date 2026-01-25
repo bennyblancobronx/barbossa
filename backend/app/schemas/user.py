@@ -12,13 +12,11 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """User creation request."""
     password: str
-    is_admin: bool = False
 
 
 class UserResponse(UserBase):
     """User response."""
     id: int
-    is_admin: bool
     created_at: Optional[datetime] = None
 
     class Config:

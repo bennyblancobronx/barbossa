@@ -1,9 +1,9 @@
-"""TorrentLeech API endpoints (admin only)."""
+"""TorrentLeech API endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.album import Album
 from app.integrations.torrentleech import TorrentLeechClient, TorrentLeechError
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/tl", tags=["torrentleech"])
 @router.get("/check/{release_name}")
 async def check_release(
     release_name: str,
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Check if release exists on TorrentLeech."""
     client = TorrentLeechClient()
@@ -37,7 +37,7 @@ async def upload_album(
     album_id: int,
     tags: str = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Create torrent and upload album to TorrentLeech.
 

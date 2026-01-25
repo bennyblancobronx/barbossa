@@ -225,4 +225,3 @@ class TestWebSocket:
 
         manager = ConnectionManager()
         assert len(manager.active_connections) == 0
-        assert len(manager.admin_connections) == 0

@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     jwt_expiry_hours: int = 24
 
     # Paths
-    music_library: str = "/music/library"
+    music_library: str = "/music/artists"
     music_users: str = "/music/users"
     music_downloads: str = "/music/downloads"
 

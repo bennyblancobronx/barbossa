@@ -20,9 +20,8 @@ async def create_export(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Create new export job."""
-    # Non-admins can only export their own library
-    target_user_id = data.user_id if user.is_admin and data.user_id else user.id
+    """Create new export job for current user."""
+    target_user_id = user.id
 
     service = ExportService(db)
     export = service.create_export(
@@ -48,10 +47,7 @@ async def list_exports(
     user: User = Depends(get_current_user)
 ):
     """List user's exports."""
-    query = db.query(Export)
-
-    if not user.is_admin:
-        query = query.filter(Export.user_id == user.id)
+    query = db.query(Export).filter(Export.user_id == user.id)
 
     return query.order_by(Export.created_at.desc()).all()
 
@@ -68,7 +64,7 @@ async def get_export(
     if not export:
         raise HTTPException(status_code=404, detail="Export not found")
 
-    if not user.is_admin and export.user_id != user.id:
+    if export.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     return export
@@ -86,7 +82,7 @@ async def cancel_export(
     if not export:
         raise HTTPException(status_code=404, detail="Export not found")
 
-    if not user.is_admin and export.user_id != user.id:
+    if export.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if export.status not in [ExportStatus.PENDING, ExportStatus.RUNNING]:

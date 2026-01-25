@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.config import get_settings
 from app.integrations.lidarr import LidarrClient
@@ -21,15 +21,16 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 class SettingsResponse(BaseModel):
     """Settings response."""
     # Path mapping (for UI display translation)
-    music_path_host: str  # Host path, e.g., /Volumes/media
+    music_path_host: str  # Host path, e.g., /Volumes/media/library/music
     music_path_container: str = "/music"  # Container mount point
 
     # Paths (container paths)
-    music_library: str
-    music_users: str
-    music_downloads: str
-    music_import: str
-    music_export: str
+    music_library: str    # /music/artists - Master library
+    music_users: str      # /music/users - Per-user symlinked libraries
+    music_downloads: str  # /music/downloads - Temp download staging
+    music_import: str     # /music/import - Watch folder for imports
+    music_export: str     # /music/export - Export destination
+    music_database: str   # /music/database - Database backups
 
     # Qobuz
     qobuz_enabled: bool
@@ -76,24 +77,23 @@ async def get_current_settings(
     # Get fresh settings instance (not stale module-level cache)
     settings = get_settings()
 
-    # Test connections for admin
+    # Test connections
     lidarr_connected = None
     plex_connected = None
 
-    if user.is_admin:
-        if settings.lidarr_url and settings.lidarr_api_key:
-            try:
-                lidarr = LidarrClient()
-                lidarr_connected = await lidarr.test_connection()
-            except Exception:
-                lidarr_connected = False
+    if settings.lidarr_url and settings.lidarr_api_key:
+        try:
+            lidarr = LidarrClient()
+            lidarr_connected = await lidarr.test_connection()
+        except Exception:
+            lidarr_connected = False
 
-        if settings.plex_url and settings.plex_token:
-            try:
-                plex = PlexClient()
-                plex_connected = await plex.test_connection()
-            except Exception:
-                plex_connected = False
+    if settings.plex_url and settings.plex_token:
+        try:
+            plex = PlexClient()
+            plex_connected = await plex.test_connection()
+        except Exception:
+            plex_connected = False
 
     # Mask email for display (show first 2 chars + domain)
     qobuz_email_masked = ""
@@ -114,6 +114,7 @@ async def get_current_settings(
         music_downloads=settings.music_downloads,
         music_import=settings.music_import,
         music_export=settings.music_export,
+        music_database=settings.music_database,
         qobuz_enabled=bool(settings.qobuz_email and settings.qobuz_password),
         qobuz_email=qobuz_email_masked,
         qobuz_quality=settings.qobuz_quality,
@@ -132,7 +133,7 @@ async def get_current_settings(
 @router.put("")
 async def update_settings(
     data: SettingsUpdate,
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Update application settings.
 
@@ -191,7 +192,7 @@ async def update_settings(
 async def test_lidarr_connection(
     url: str,
     api_key: str,
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Test Lidarr connection with provided credentials."""
     import httpx
@@ -219,7 +220,7 @@ async def test_lidarr_connection(
 async def test_plex_connection(
     url: str,
     token: str,
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Test Plex connection with provided credentials."""
     import httpx
@@ -241,7 +242,7 @@ async def test_plex_connection(
 
 @router.post("/bandcamp/sync")
 async def trigger_bandcamp_sync(
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Trigger Bandcamp collection sync."""
     from app.tasks.downloads import sync_bandcamp_task
@@ -263,11 +264,11 @@ class BrowseResponse(BaseModel):
 @router.get("/browse", response_model=BrowseResponse)
 async def browse_directory(
     path: str = Query("/", description="Path to browse"),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Browse filesystem directories for path selection.
 
-    Admin only. Returns list of subdirectories at the given path.
+    Returns list of subdirectories at the given path.
     """
     # Normalize and validate path
     try:

@@ -7,7 +7,7 @@ from sqlalchemy import func
 from passlib.context import CryptContext
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.artist import Artist
 from app.models.album import Album
@@ -22,17 +22,10 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-class UserUpdate:
-    """User update model."""
-    def __init__(self, password: Optional[str] = None, is_admin: Optional[bool] = None):
-        self.password = password
-        self.is_admin = is_admin
-
-
 @router.get("/users", response_model=list[UserResponse])
 async def list_users(
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """List all users."""
     return db.query(User).order_by(User.username).all()
@@ -42,7 +35,7 @@ async def list_users(
 async def create_user(
     data: UserCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Create new user."""
     existing = db.query(User).filter(User.username == data.username).first()
@@ -52,7 +45,6 @@ async def create_user(
     user = User(
         username=data.username,
         password_hash=pwd_context.hash(data.password),
-        is_admin=data.is_admin or False
     )
     db.add(user)
     db.commit()
@@ -65,7 +57,7 @@ async def create_user(
 async def get_user(
     user_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Get user by ID."""
     user = db.query(User).filter(User.id == user_id).first()
@@ -78,9 +70,8 @@ async def get_user(
 async def update_user(
     user_id: int,
     password: Optional[str] = None,
-    is_admin: Optional[bool] = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Update user."""
     user = db.query(User).filter(User.id == user_id).first()
@@ -89,9 +80,6 @@ async def update_user(
 
     if password:
         user.password_hash = pwd_context.hash(password)
-
-    if is_admin is not None:
-        user.is_admin = is_admin
 
     db.commit()
     db.refresh(user)
@@ -102,19 +90,15 @@ async def update_user(
 async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete user."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if user.id == admin.id:
+    if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-
-    admin_count = db.query(User).filter(User.is_admin == True).count()
-    if user.is_admin and admin_count <= 1:
-        raise HTTPException(status_code=400, detail="Cannot delete last admin")
 
     db.delete(user)
     db.commit()
@@ -125,7 +109,7 @@ async def delete_user(
 @router.post("/rescan")
 async def rescan_library(
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Trigger library rescan."""
     from app.tasks.maintenance import scan_library
@@ -140,7 +124,7 @@ async def rescan_library(
 @router.get("/health")
 async def library_health(
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Get library health report."""
     # Count totals
@@ -195,7 +179,7 @@ async def list_activity(
     offset: int = Query(0, ge=0),
     action: Optional[str] = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Get all activity logs (admin only)."""
     service = ActivityService(db)
@@ -227,7 +211,7 @@ async def list_activity(
 @router.post("/integrity/verify")
 async def verify_integrity(
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Trigger integrity verification task."""
     from app.tasks.maintenance import verify_integrity as verify_task
@@ -243,7 +227,7 @@ async def verify_integrity(
 async def backup_history(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Get backup history."""
     backups = (
@@ -276,7 +260,7 @@ async def backup_history(
 async def trigger_backup(
     destination: str = Query(..., description="Backup destination path"),
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Trigger manual backup."""
     from app.tasks.maintenance import run_backup

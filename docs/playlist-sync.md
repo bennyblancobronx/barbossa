@@ -66,9 +66,9 @@ Users can drop M3U files in the import watch folder or upload via UI.
 # Example M3U format
 #EXTM3U
 #EXTINF:234,Pink Floyd - Comfortably Numb
-/music/library/Pink Floyd/The Wall (1979)/06 - Comfortably Numb.flac
+/music/artists/Pink Floyd/The Wall (1979)/06 - Comfortably Numb.flac
 #EXTINF:412,Led Zeppelin - Stairway to Heaven
-/music/library/Led Zeppelin/Led Zeppelin IV (1971)/04 - Stairway to Heaven.flac
+/music/artists/Led Zeppelin/Led Zeppelin IV (1971)/04 - Stairway to Heaven.flac
 ```
 
 ## Export Methods

@@ -107,10 +107,10 @@ exiftool -j -SampleRate -BitsPerSample audio.flac | python -m json.tool
 
 ```bash
 # All FLAC files in directory
-exiftool -j -SampleRate -BitsPerSample -Channels -ext flac /music/library/
+exiftool -j -SampleRate -BitsPerSample -Channels -ext flac /music/artists/
 
 # Recursive with subdirectories
-exiftool -r -j -SampleRate -BitsPerSample -ext flac /music/library/
+exiftool -r -j -SampleRate -BitsPerSample -ext flac /music/artists/
 
 # Multiple extensions
 exiftool -j -ext flac -ext mp3 -ext m4a /music/downloads/
@@ -161,7 +161,7 @@ def get_audio_quality(file_path: str) -> dict:
     return {}
 
 # Usage
-quality = get_audio_quality("/music/library/Artist/Album/track.flac")
+quality = get_audio_quality("/music/artists/Artist/Album/track.flac")
 print(f"Sample Rate: {quality.get('FLAC:SampleRate')}")
 print(f"Bit Depth: {quality.get('FLAC:BitsPerSample')}")
 ```
@@ -218,7 +218,7 @@ def scan_library_quality(library_path: str) -> list:
         )
 
 # Usage
-quality_data = scan_library_quality("/music/library")
+quality_data = scan_library_quality("/music/artists")
 for track in quality_data:
     print(f"{track['SourceFile']}: {track.get('FLAC:SampleRate', track.get('MPEG:SampleRate', 'N/A'))}")
 ```

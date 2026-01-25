@@ -157,7 +157,7 @@ def parse_download_output(output: str) -> list:
    - Beets: metadata, artwork, naming
    - ExifTool: quality extraction
    - Dupe check against existing library
-   - Move to /music/library/
+   - Move to /music/artists/
 
 5. Plex scan triggered
 ```

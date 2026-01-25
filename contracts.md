@@ -46,7 +46,7 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 - Review queue for unidentified content
 - Supports: CD rips, Bandcamp, other purchases, existing collections
 
-### 5. Settings (Admin Only)
+### 5. Settings
 - Music Library Location
 - User Management (add/remove/edit users)
 - Source Settings:
@@ -117,9 +117,9 @@ When content not in local library:
 - Non-blocking
 - Types: download complete, import complete, quality upgrade, error
 
-### Pending Review Queue (Admin)
+### Pending Review Queue
 ```
-Admin > Pending Review (3 items)
+Settings > Pending Review (3 items)
 +-------------------------------------------------------------+
 | 1. Unknown Album (12 tracks)                                |
 |    Path: /music/import/review/unknown_folder/               |
@@ -138,8 +138,8 @@ Admin > Pending Review (3 items)
 
 ### Library Structure
 ```
-/music/
-├── library/                    # Master library (all music)
+/Volumes/media/library/music/   # Host path (mounted as /music in container)
+├── artists/                    # Master library (all music)
 │   └── Artist Name/
 │       └── Album Name (Year)/
 │           ├── cover.jpg
@@ -156,6 +156,8 @@ Admin > Pending Review (3 items)
 │   ├── pending/                # Drop files here
 │   ├── review/                 # Beets couldn't identify
 │   └── rejected/               # Duplicates, corrupt files
+├── database/                   # Database backups
+│   └── db_YYYYMMDD_HHMMSS.sql.gz
 └── export/                     # User export staging
 ```
 
@@ -180,7 +182,7 @@ Admin > Pending Review (3 items)
 3. ExifTool extracts: sample_rate, bit_depth, file_size
 4. Checksum generated for integrity
 5. Dupe check against database (quality comparison)
-6. If better quality or new: move to /music/library/
+6. If better quality or new: move to /music/artists/
 7. Index in Barbossa database with source tracking
 8. Plex API: trigger scan of artist folder
 9. Activity log: record import event
@@ -239,7 +241,6 @@ Album status: COMPLETE (mixed sources)
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -381,7 +382,7 @@ def add_album_to_user_library(user_id: int, album_id: int):
     user = db.get_user(user_id)
 
     source = Path(album.path)
-    dest = Path(f"/music/users/{user.username}") / source.relative_to("/music/library")
+    dest = Path(f"/music/users/{user.username}") / source.relative_to("/music/artists")
 
     dest.mkdir(parents=True, exist_ok=True)
 
@@ -400,7 +401,7 @@ def remove_album_from_user_library(user_id: int, album_id: int):
     album = db.get_album(album_id)
     user = db.get_user(user_id)
 
-    dest = Path(f"/music/users/{user.username}") / Path(album.path).relative_to("/music/library")
+    dest = Path(f"/music/users/{user.username}") / Path(album.path).relative_to("/music/artists")
 
     if dest.exists():
         shutil.rmtree(dest)
@@ -480,9 +481,9 @@ Destination:
 
 ---
 
-## Admin Features
+## Additional Features
 
-### TorrentLeech Upload (Admin Only)
+### TorrentLeech Upload
 - Upload button: top-right of album art
 - Appears on hover (1 second delay)
 - Before upload:
@@ -495,7 +496,6 @@ Destination:
 
 ### User Management
 - Add/remove family members
-- Set admin privileges
 - View user library stats
 - View activity log per user
 

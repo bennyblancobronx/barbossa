@@ -30,7 +30,6 @@ def login(request: UserLogin, db: Session = Depends(get_db)):
         user=UserResponse(
             id=user.id,
             username=user.username,
-            is_admin=user.is_admin,
             created_at=user.created_at,
         ),
     )
@@ -48,6 +47,5 @@ def get_me(user: User = Depends(get_current_user)):
     return UserResponse(
         id=user.id,
         username=user.username,
-        is_admin=user.is_admin,
         created_at=user.created_at,
     )

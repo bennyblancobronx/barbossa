@@ -15,7 +15,7 @@ Barbossa integrates with an external Lidarr instance via API for automated music
          |                             |
          |                             |
          v                             v
-   /music/library              /music/downloads/lidarr
+   /music/artists              /music/downloads/lidarr
    (final destination)         (Lidarr output)
                                       |
                                       v

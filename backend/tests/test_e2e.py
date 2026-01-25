@@ -77,8 +77,8 @@ class TestLibraryWorkflow:
         # Check in user library
         response = client.get("/api/me/library", headers=auth_headers)
         assert response.status_code == 200
-        albums = response.json().get("albums", [])
-        album_ids = [a["id"] for a in albums]
+        items = response.json().get("items", [])
+        album_ids = [a["id"] for a in items]
         assert album_id in album_ids
 
         # Unheart album
@@ -90,8 +90,8 @@ class TestLibraryWorkflow:
 
         # Verify removed
         response = client.get("/api/me/library", headers=auth_headers)
-        albums = response.json().get("albums", [])
-        album_ids = [a["id"] for a in albums]
+        items = response.json().get("items", [])
+        album_ids = [a["id"] for a in items]
         assert album_id not in album_ids
 
 
@@ -110,32 +110,6 @@ class TestSearchWorkflow:
         assert "artists" in data
         assert "albums" in data
         assert "tracks" in data
-
-
-class TestAdminWorkflow:
-    """Admin functionality tests."""
-
-    def test_admin_user_management(self, client, db, admin_headers):
-        """Test admin can manage users."""
-        # Create user
-        response = client.post(
-            "/api/admin/users",
-            json={"username": "newuser", "password": "newpass"},
-            headers=admin_headers
-        )
-        assert response.status_code in [200, 201]
-
-        # List users
-        response = client.get("/api/admin/users", headers=admin_headers)
-        assert response.status_code == 200
-        users = response.json()
-        usernames = [u["username"] for u in users]
-        assert "newuser" in usernames
-
-    def test_non_admin_cannot_manage_users(self, client, auth_headers):
-        """Test regular user cannot access admin endpoints."""
-        response = client.get("/api/admin/users", headers=auth_headers)
-        assert response.status_code in [401, 403]
 
 
 class TestAPIStructure:

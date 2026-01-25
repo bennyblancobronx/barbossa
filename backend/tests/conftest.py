@@ -49,14 +49,7 @@ def client(db):
 def test_user(db):
     """Create a test user."""
     auth = AuthService(db)
-    return auth.create_user("testuser", "testpass", is_admin=False)
-
-
-@pytest.fixture
-def admin_user(db):
-    """Create an admin test user."""
-    auth = AuthService(db)
-    return auth.create_user("admin", "adminpass", is_admin=True)
+    return auth.create_user("testuser", "testpass")
 
 
 @pytest.fixture
@@ -68,25 +61,10 @@ def auth_headers(db, test_user):
 
 
 @pytest.fixture
-def admin_headers(db, admin_user):
-    """Get authorization headers for admin user."""
-    auth = AuthService(db)
-    token = auth.create_token(admin_user.id)
-    return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture
 def auth_token(db, test_user):
     """Get raw JWT token for test user (used for WebSocket)."""
     auth = AuthService(db)
     return auth.create_token(test_user.id)
-
-
-@pytest.fixture
-def admin_token(db, admin_user):
-    """Get raw JWT token for admin user (used for WebSocket)."""
-    auth = AuthService(db)
-    return auth.create_token(admin_user.id)
 
 
 @pytest.fixture

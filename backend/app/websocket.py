@@ -1,6 +1,6 @@
 """WebSocket manager for real-time updates.
 
-Phase 3 implementation with per-user tracking, heartbeat, and admin broadcasts.
+Per-user tracking with heartbeat for connection keepalive.
 """
 import asyncio
 from typing import Dict, Set, Optional
@@ -14,8 +14,6 @@ class ConnectionManager:
     def __init__(self):
         # user_id -> set of WebSocket connections
         self.active_connections: Dict[int, Set[WebSocket]] = {}
-        # All admin connections for broadcasts
-        self.admin_connections: Set[WebSocket] = set()
         # Heartbeat interval in seconds
         self.heartbeat_interval = 30
         # Track heartbeat tasks for cleanup
@@ -24,8 +22,7 @@ class ConnectionManager:
     async def connect(
         self,
         websocket: WebSocket,
-        user_id: int,
-        is_admin: bool = False
+        user_id: int
     ):
         """Accept connection and register user."""
         await websocket.accept()
@@ -34,9 +31,6 @@ class ConnectionManager:
             self.active_connections[user_id] = set()
 
         self.active_connections[user_id].add(websocket)
-
-        if is_admin:
-            self.admin_connections.add(websocket)
 
         # Start heartbeat task
         task = asyncio.create_task(self._heartbeat(websocket, user_id))
@@ -49,8 +43,6 @@ class ConnectionManager:
 
             if not self.active_connections[user_id]:
                 del self.active_connections[user_id]
-
-        self.admin_connections.discard(websocket)
 
         # Cancel heartbeat task
         if websocket in self._heartbeat_tasks:
@@ -73,25 +65,6 @@ class ConnectionManager:
         # Clean up dead connections
         for conn in dead_connections:
             self.disconnect(conn, user_id)
-
-    async def broadcast_to_admins(self, message: dict):
-        """Send message to all admin connections."""
-        dead_connections = set()
-
-        for connection in self.admin_connections:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                dead_connections.add(connection)
-
-        # Find and clean up dead admin connections
-        for conn in dead_connections:
-            self.admin_connections.discard(conn)
-            # Find user_id for this connection
-            for user_id, conns in list(self.active_connections.items()):
-                if conn in conns:
-                    self.disconnect(conn, user_id)
-                    break
 
     async def broadcast_all(self, message: dict):
         """Send message to all connected users."""
@@ -135,7 +108,7 @@ async def broadcast_download_progress(
     speed: Optional[str] = None,
     eta: Optional[str] = None
 ):
-    """Broadcast download progress to user and admins."""
+    """Broadcast download progress to user."""
     message = {
         "type": "download:progress",
         "download_id": download_id,
@@ -144,10 +117,7 @@ async def broadcast_download_progress(
         "eta": eta,
         "timestamp": datetime.utcnow().isoformat()
     }
-    # Send to the user who started the download
     await manager.send_to_user(user_id, message)
-    # Also broadcast to all admins
-    await manager.broadcast_to_admins(message)
 
 
 async def broadcast_download_complete(
@@ -167,7 +137,6 @@ async def broadcast_download_complete(
         "timestamp": datetime.utcnow().isoformat()
     }
     await manager.send_to_user(user_id, message)
-    await manager.broadcast_to_admins(message)
 
 
 async def broadcast_download_error(
@@ -183,7 +152,6 @@ async def broadcast_download_error(
         "timestamp": datetime.utcnow().isoformat()
     }
     await manager.send_to_user(user_id, message)
-    await manager.broadcast_to_admins(message)
 
 
 async def broadcast_import_complete(

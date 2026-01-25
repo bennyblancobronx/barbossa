@@ -10,41 +10,19 @@ app = typer.Typer()
 console = Console()
 
 
-def require_admin():
-    """Require admin privileges."""
-    user, db = get_current_user()
-    if not user.is_admin:
-        console.print("[red]Admin privileges required[/red]")
-        db.close()
-        raise typer.Exit(1)
-    return user, db
-
-
 @app.command("create-user")
 def create_user(
     username: str = typer.Argument(..., help="Username for new user"),
-    admin: bool = typer.Option(False, "--admin", "-a", help="Grant admin privileges"),
     password: str = typer.Option(None, "--password", "-p", help="Password (will prompt if not provided)"),
 ):
-    """Create a new user (admin only, or first user)."""
+    """Create a new user."""
     from app.database import SessionLocal
     from app.services.auth import AuthService
+    from app.models.user import User
 
     db = SessionLocal()
     try:
         auth_service = AuthService(db)
-
-        # Check if any users exist
-        from app.models.user import User
-        user_count = db.query(User).count()
-
-        if user_count > 0:
-            # Require admin to create more users
-            try:
-                current_user, _ = require_admin()
-            except typer.Exit:
-                console.print("[red]Only admins can create users (or create first user)[/red]")
-                return
 
         # Check if username exists
         existing = db.query(User).filter(User.username == username).first()
@@ -61,36 +39,32 @@ def create_user(
                 raise typer.Exit(1)
 
         # Create user
-        user = auth_service.create_user(username, password, is_admin=admin)
+        user = auth_service.create_user(username, password)
 
         console.print(f"[green]User '{username}' created successfully[/green]")
-        if admin:
-            console.print("[cyan]Admin privileges granted[/cyan]")
     finally:
         db.close()
 
 
 @app.command("list-users")
 def list_users():
-    """List all users (admin only)."""
-    user, db = require_admin()
-    try:
-        from app.models.user import User
+    """List all users."""
+    from app.database import SessionLocal
+    from app.models.user import User
 
+    db = SessionLocal()
+    try:
         users = db.query(User).order_by(User.username).all()
 
         table = Table(title="Users")
         table.add_column("ID", style="dim")
         table.add_column("Username", style="cyan")
-        table.add_column("Admin", justify="center")
         table.add_column("Created")
 
         for u in users:
-            admin_badge = "[green]Yes[/green]" if u.is_admin else ""
             table.add_row(
                 str(u.id),
                 u.username,
-                admin_badge,
                 str(u.created_at.date()) if u.created_at else "",
             )
 
@@ -104,18 +78,15 @@ def delete_user(
     username: str = typer.Argument(..., help="Username to delete"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
 ):
-    """Delete a user (admin only)."""
-    user, db = require_admin()
-    try:
-        from app.models.user import User
+    """Delete a user."""
+    from app.database import SessionLocal
+    from app.models.user import User
 
+    db = SessionLocal()
+    try:
         target = db.query(User).filter(User.username == username).first()
         if not target:
             console.print(f"[red]User '{username}' not found[/red]")
-            raise typer.Exit(1)
-
-        if target.id == user.id:
-            console.print("[red]Cannot delete yourself[/red]")
             raise typer.Exit(1)
 
         if not force:
@@ -133,21 +104,17 @@ def delete_user(
 
 @app.command("rescan")
 def rescan():
-    """Rescan the music library (admin only)."""
-    user, db = require_admin()
-    try:
-        console.print("[yellow]Library rescan not yet implemented[/yellow]")
-        console.print("This will scan /music/library and update the database.")
-    finally:
-        db.close()
+    """Rescan the music library."""
+    console.print("[yellow]Library rescan not yet implemented[/yellow]")
+    console.print("This will scan /music/artists and update the database.")
 
 
 @app.command("seed")
 def seed_data(
-    admin_username: str = typer.Option("admin", "--admin-user", help="Admin username"),
-    admin_password: str = typer.Option(None, "--admin-pass", help="Admin password"),
+    username: str = typer.Option("admin", "--user", "-u", help="Username"),
+    password: str = typer.Option(None, "--pass", "-p", help="Password"),
 ):
-    """Seed database with initial admin user."""
+    """Seed database with initial user."""
     from app.database import SessionLocal
     from app.services.auth import AuthService
     from app.models.user import User
@@ -161,18 +128,18 @@ def seed_data(
             return
 
         # Get password
-        if not admin_password:
-            admin_password = typer.prompt("Admin password", hide_input=True)
+        if not password:
+            password = typer.prompt("Password", hide_input=True)
             password_confirm = typer.prompt("Confirm password", hide_input=True)
-            if admin_password != password_confirm:
+            if password != password_confirm:
                 console.print("[red]Passwords do not match[/red]")
                 raise typer.Exit(1)
 
-        # Create admin user
+        # Create user
         auth_service = AuthService(db)
-        user = auth_service.create_user(admin_username, admin_password, is_admin=True)
+        user = auth_service.create_user(username, password)
 
-        console.print(f"[green]Admin user '{admin_username}' created successfully[/green]")
+        console.print(f"[green]User '{username}' created successfully[/green]")
     finally:
         db.close()
 

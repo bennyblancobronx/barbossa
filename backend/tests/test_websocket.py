@@ -14,7 +14,6 @@ class TestConnectionManager:
         """Test manager initialization."""
         mgr = ConnectionManager()
         assert mgr.active_connections == {}
-        assert mgr.admin_connections == set()
         assert mgr.heartbeat_interval == 30
 
     def test_get_connection_count_empty(self):
@@ -41,12 +40,6 @@ class TestConnectionManager:
         # Should not raise
         await mgr.broadcast_all({"test": "message"})
 
-    @pytest.mark.asyncio
-    async def test_broadcast_to_admins_empty(self):
-        """Test admin broadcast with no connections."""
-        mgr = ConnectionManager()
-        # Should not raise
-        await mgr.broadcast_to_admins({"test": "message"})
 
 
 class TestWebSocketEndpoint:
@@ -70,40 +63,45 @@ class TestWebSocketEndpoint:
             # Any exception is expected
             pass
 
-    def test_websocket_with_valid_token(self, client, auth_token):
+    def test_websocket_with_valid_token(self, client, auth_token, db):
         """Test WebSocket connection with valid token."""
-        with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
-            # Send ping
-            websocket.send_json({"type": "ping"})
-            # Receive pong
-            data = websocket.receive_json()
-            assert data["type"] == "pong"
+        # Patch SessionLocal to use test database
+        with patch("app.api.websocket.SessionLocal", return_value=db):
+            with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
+                # Send ping
+                websocket.send_json({"type": "ping"})
+                # Receive pong
+                data = websocket.receive_json()
+                assert data["type"] == "pong"
 
-    def test_websocket_subscribe(self, client, auth_token):
+    def test_websocket_subscribe(self, client, auth_token, db):
         """Test subscribing to channels."""
-        with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
-            # Subscribe to activity
-            websocket.send_json({"type": "subscribe", "channel": "activity"})
-            data = websocket.receive_json()
-            assert data["type"] == "subscribed"
-            assert data["channel"] == "activity"
+        with patch("app.api.websocket.SessionLocal", return_value=db):
+            with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
+                # Subscribe to activity
+                websocket.send_json({"type": "subscribe", "channel": "activity"})
+                data = websocket.receive_json()
+                assert data["type"] == "subscribed"
+                assert data["channel"] == "activity"
 
-    def test_websocket_subscribe_unknown_channel(self, client, auth_token):
+    def test_websocket_subscribe_unknown_channel(self, client, auth_token, db):
         """Test subscribing to unknown channel."""
-        with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
-            # Subscribe to unknown channel
-            websocket.send_json({"type": "subscribe", "channel": "unknown"})
-            data = websocket.receive_json()
-            assert data["type"] == "error"
+        with patch("app.api.websocket.SessionLocal", return_value=db):
+            with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
+                # Subscribe to unknown channel
+                websocket.send_json({"type": "subscribe", "channel": "unknown"})
+                data = websocket.receive_json()
+                assert data["type"] == "error"
 
-    def test_websocket_unsubscribe(self, client, auth_token):
+    def test_websocket_unsubscribe(self, client, auth_token, db):
         """Test unsubscribing from channels."""
-        with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
-            # Unsubscribe
-            websocket.send_json({"type": "unsubscribe", "channel": "activity"})
-            data = websocket.receive_json()
-            assert data["type"] == "unsubscribed"
-            assert data["channel"] == "activity"
+        with patch("app.api.websocket.SessionLocal", return_value=db):
+            with client.websocket_connect(f"/ws?token={auth_token}") as websocket:
+                # Unsubscribe
+                websocket.send_json({"type": "unsubscribe", "channel": "activity"})
+                data = websocket.receive_json()
+                assert data["type"] == "unsubscribed"
+                assert data["channel"] == "activity"
 
 
 class TestBroadcastFunctions:
@@ -257,7 +255,7 @@ class TestActivityService:
 
         # Create user
         auth = AuthService(db)
-        user = auth.create_user("testuser", "testpass", is_admin=False)
+        user = auth.create_user("testuser", "testpass")
 
         service = ActivityService(db)
 

@@ -301,23 +301,20 @@ function UserManagement({ users }) {
           <div key={user.id} className="user-item">
             <div className="user-info">
               <span className="user-name">{user.username}</span>
-              {user.is_admin && <span className="badge">Admin</span>}
             </div>
             <div className="user-stats">
               <span>{user.album_count || 0} albums</span>
             </div>
-            {!user.is_admin && (
-              <button
-                className="btn btn-ghost text-error"
-                onClick={() => {
-                  if (confirm(`Delete user ${user.username}?`)) {
-                    deleteUser.mutate(user.id)
-                  }
-                }}
-              >
-                Delete
-              </button>
-            )}
+            <button
+              className="btn btn-ghost text-error"
+              onClick={() => {
+                if (confirm(`Delete user ${user.username}?`)) {
+                  deleteUser.mutate(user.id)
+                }
+              }}
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>
@@ -330,7 +327,6 @@ function UserManagement({ users }) {
 function AddUserModal({ onClose }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [isAdmin, setIsAdmin] = useState(false)
   const queryClient = useQueryClient()
   const { addNotification } = useNotificationStore()
 
@@ -350,7 +346,7 @@ function AddUserModal({ onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    createUser.mutate({ username, password, is_admin: isAdmin })
+    createUser.mutate({ username, password })
   }
 
   return (
@@ -379,17 +375,6 @@ function AddUserModal({ onClose }) {
               onChange={e => setPassword(e.target.value)}
               required
             />
-          </div>
-
-          <div className="field">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={isAdmin}
-                onChange={e => setIsAdmin(e.target.checked)}
-              />
-              Admin privileges
-            </label>
           </div>
 
           <div className="modal-actions">

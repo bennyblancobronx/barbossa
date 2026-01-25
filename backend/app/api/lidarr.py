@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.integrations.lidarr import LidarrClient, LidarrError
 

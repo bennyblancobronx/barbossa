@@ -146,14 +146,8 @@ async def list_downloads(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """List download history.
-
-    Admins see all downloads, users see only their own.
-    """
-    query = db.query(Download)
-
-    if not user.is_admin:
-        query = query.filter(Download.user_id == user.id)
+    """List download history for current user."""
+    query = db.query(Download).filter(Download.user_id == user.id)
 
     if status:
         query = query.filter(Download.status == status)
@@ -175,11 +169,9 @@ async def get_download_queue(
             DownloadStatus.PENDING.value,
             DownloadStatus.DOWNLOADING.value,
             DownloadStatus.IMPORTING.value
-        ])
+        ]),
+        Download.user_id == user.id
     )
-
-    if not user.is_admin:
-        query = query.filter(Download.user_id == user.id)
 
     return query.order_by(Download.created_at.asc()).all()
 
@@ -196,7 +188,7 @@ async def get_download(
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
-    if not user.is_admin and download.user_id != user.id:
+    if download.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     return download
@@ -217,7 +209,7 @@ async def get_download_status(
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
-    if not user.is_admin and download.user_id != user.id:
+    if download.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     return download
@@ -235,7 +227,7 @@ async def cancel_download(
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
-    if not user.is_admin and download.user_id != user.id:
+    if download.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     cancellable_statuses = [
@@ -275,7 +267,7 @@ async def delete_download(
     if not download:
         raise HTTPException(status_code=404, detail="Download not found")
 
-    if not user.is_admin and download.user_id != user.id:
+    if download.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     deletable_statuses = [

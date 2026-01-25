@@ -31,13 +31,11 @@ export default function Sidebar() {
           Downloads
         </NavLink>
 
-        {user?.is_admin && (
-          <NavLink to="/settings" className={({ isActive }) =>
-            `nav-link ${isActive ? 'is-active' : ''}`
-          }>
-            Settings
-          </NavLink>
-        )}
+        <NavLink to="/settings" className={({ isActive }) =>
+          `nav-link ${isActive ? 'is-active' : ''}`
+        }>
+          Settings
+        </NavLink>
       </nav>
 
       <div className="sidebar-footer">

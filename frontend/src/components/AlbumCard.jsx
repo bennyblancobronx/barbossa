@@ -1,19 +1,15 @@
 import { useState, useRef } from 'react'
-import { useAuthStore } from '../stores/auth'
 import * as api from '../services/api'
 
 export default function AlbumCard({ album, onClick }) {
   const [isHearted, setIsHearted] = useState(album.is_hearted)
   const [isLoading, setIsLoading] = useState(false)
   const [showTrash, setShowTrash] = useState(false)
-  const isAdmin = useAuthStore(state => state.user?.is_admin)
   const trashTimeout = useRef(null)
 
   // 1-second delay for trash icon visibility (per contracts.md)
   const handleMouseEnter = () => {
-    if (isAdmin) {
-      trashTimeout.current = setTimeout(() => setShowTrash(true), 1000)
-    }
+    trashTimeout.current = setTimeout(() => setShowTrash(true), 1000)
   }
 
   const handleMouseLeave = () => {
@@ -73,8 +69,8 @@ export default function AlbumCard({ album, onClick }) {
           </div>
         )}
 
-        {/* Trash icon: top-left, appears after 1s hover (admin only) */}
-        {isAdmin && showTrash && (
+        {/* Trash icon: top-left, appears after 1s hover */}
+        {showTrash && (
           <button
             className="btn-icon delete-btn album-action-top-left"
             onClick={handleDelete}

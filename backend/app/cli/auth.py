@@ -62,8 +62,6 @@ def login(
         save_token(token, user.username)
 
         console.print(f"[green]Logged in as {user.username}[/green]")
-        if user.is_admin:
-            console.print("[cyan]Admin privileges enabled[/cyan]")
     finally:
         db.close()
 
@@ -107,7 +105,6 @@ def whoami():
         table.add_column("Value")
 
         table.add_row("Username", user.username)
-        table.add_row("Admin", "Yes" if user.is_admin else "No")
         table.add_row("Created", str(user.created_at))
 
         console.print(table)

@@ -105,7 +105,7 @@ def scan_path(path: str):
     return response.status_code == 200
 
 # After importing Pink Floyd album:
-scan_path("/music/library/Pink Floyd/The Dark Side of the Moon (1973)")
+scan_path("/music/artists/Pink Floyd/The Dark Side of the Moon (1973)")
 ```
 
 ### Using PlexAPI library
@@ -122,7 +122,7 @@ music = plex.library.section('Music')
 music.update()
 
 # Scan specific location (requires path in library)
-music.update(path="/music/library/Pink Floyd")
+music.update(path="/music/artists/Pink Floyd")
 
 # Refresh metadata for specific album
 album = music.searchAlbums(title="The Dark Side of the Moon")[0]
@@ -236,14 +236,14 @@ curl -s "http://PLEX_IP:32400/library/sections/3?X-Plex-Token=TOKEN" | \
 ### "Scan not updating"
 - Plex may not see files if path mapping differs
 - Check Plex library path vs Barbossa library path
-- Both must see `/music/library/` at same location
+- Both must see `/music/artists/` at same location
 
 ### Path Mapping (Docker)
 If Barbossa and Plex have different mounts:
 ```python
 def translate_path(barbossa_path: str) -> str:
     """Convert Barbossa path to Plex path."""
-    # Barbossa: /music/library/Artist/Album
+    # Barbossa: /music/artists/Artist/Album
     # Plex:     /data/music/Artist/Album
-    return barbossa_path.replace("/music/library", "/data/music")
+    return barbossa_path.replace("/music/artists", "/data/music")
 ```

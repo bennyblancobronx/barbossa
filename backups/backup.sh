@@ -2,9 +2,12 @@
 # Barbossa Database Backup Script
 set -e
 
-BACKUP_DIR="/backups"
+BACKUP_DIR="${BACKUP_DIR:-/music/database}"
 DATE=$(date +%Y%m%d_%H%M%S)
 RETENTION_DAYS=30
+
+# Ensure backup directory exists
+mkdir -p "${BACKUP_DIR}"
 
 echo "Starting backup: ${DATE}"
 

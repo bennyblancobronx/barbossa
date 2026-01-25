@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.pending_review import PendingReview, PendingReviewStatus
 from app.schemas.review import ReviewResponse, ApproveRequest, RejectRequest
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/import/review", tags=["review"])
 async def list_pending_review(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """List items pending review."""
     query = db.query(PendingReview).order_by(PendingReview.created_at.desc())
@@ -40,7 +40,7 @@ async def list_pending_review(
 async def get_review_item(
     review_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Get single review item with details."""
     review = db.query(PendingReview).filter(PendingReview.id == review_id).first()
@@ -55,7 +55,7 @@ async def approve_import(
     review_id: int,
     data: ApproveRequest,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Approve and import pending item.
 
@@ -94,13 +94,13 @@ async def approve_import(
             tracks_metadata=tracks_metadata,
             source="import",
             source_url="",
-            imported_by=admin.id,
+            imported_by=current_user.id,
             confidence=1.0
         )
 
         # Update review status
         review.status = PendingReviewStatus.APPROVED
-        review.reviewed_by = admin.id
+        review.reviewed_by = current_user.id
         review.reviewed_at = datetime.utcnow()
         db.commit()
 
@@ -115,7 +115,7 @@ async def reject_import(
     review_id: int,
     data: RejectRequest,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin)
+    current_user: User = Depends(get_current_user)
 ):
     """Reject and optionally delete pending item."""
     review = db.query(PendingReview).filter(PendingReview.id == review_id).first()
@@ -132,7 +132,7 @@ async def reject_import(
             shutil.rmtree(folder)
 
     review.status = PendingReviewStatus.REJECTED
-    review.reviewed_by = admin.id
+    review.reviewed_by = current_user.id
     review.reviewed_at = datetime.utcnow()
     review.notes = data.reason
     db.commit()

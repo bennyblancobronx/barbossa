@@ -65,7 +65,7 @@ async def websocket_endpoint(
         return
 
     # Connect
-    await manager.connect(websocket, user.id, user.is_admin)
+    await manager.connect(websocket, user.id)
 
     try:
         while True:
@@ -96,8 +96,8 @@ async def handle_subscribe(websocket: WebSocket, user: User, data: dict):
     """Handle subscription request."""
     channel = data.get("channel")
 
-    if channel == "downloads" and user.is_admin:
-        # Admin subscribing to all download progress
+    if channel == "downloads":
+        # User subscribing to their download progress
         await websocket.send_json({
             "type": "subscribed",
             "channel": "downloads"

@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.dependencies import get_current_user, require_admin
+from app.dependencies import get_current_user
 from app.services.library import LibraryService
 from app.services.user_library import UserLibraryService
 from app.schemas.artist import ArtistResponse, ArtistListResponse
@@ -194,9 +194,9 @@ def get_album_tracks(
 def delete_album(
     album_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
-    """Delete album from library (admin only)."""
+    """Delete album from library."""
     service = LibraryService(db)
 
     if not service.delete_album(album_id):

@@ -17,7 +17,7 @@ services:
       - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD}@db:5432/barbossa
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET}
-      - MUSIC_LIBRARY=/music/library
+      - MUSIC_LIBRARY=/music/artists
       - MUSIC_USERS=/music/users
       - MUSIC_DOWNLOADS=/music/downloads
       - MUSIC_IMPORT=/music/import
@@ -68,7 +68,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD}@db:5432/barbossa
       - REDIS_URL=redis://redis:6379/0
-      - MUSIC_LIBRARY=/music/library
+      - MUSIC_LIBRARY=/music/artists
       - MUSIC_USERS=/music/users
       - MUSIC_DOWNLOADS=/music/downloads
       - MUSIC_IMPORT=/music/import
@@ -130,7 +130,7 @@ services:
       - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD}@db:5432/barbossa
       - REDIS_URL=redis://redis:6379/0
       - WATCH_PATHS=/music/downloads/lidarr,/music/import/pending
-      - MUSIC_LIBRARY=/music/library
+      - MUSIC_LIBRARY=/music/artists
       - MUSIC_IMPORT=/music/import
     volumes:
       - ${MUSIC_PATH}:/music

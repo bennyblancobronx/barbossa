@@ -1,6 +1,6 @@
 # Barbossa CLI Specification
 
-Version: 0.1.9
+Version: 0.1.32
 
 ## Overview
 
@@ -36,7 +36,7 @@ barbossa auth login
 
 # Check current user
 barbossa auth whoami
-  Logged in as: admin (admin)
+  Logged in as: admin
 
 # Logout
 barbossa auth logout
@@ -99,7 +99,7 @@ barbossa library search "pink floyd"
 barbossa library search "dark side" --type album
 ```
 
-### Delete (Admin Only)
+### Delete
 
 ```bash
 barbossa library delete album ID [options]
@@ -119,7 +119,7 @@ barbossa library delete album 123
 
 ```bash
 barbossa heart album ID [options]
-  --user USERNAME    Target user (admin can specify, others use self)
+  --user USERNAME    Target user (default: current user)
 
 barbossa unheart album ID [options]
   --user USERNAME
@@ -301,60 +301,58 @@ barbossa export status 3
 
 ---
 
-## Admin Commands
+## User Management Commands
 
 ### User Management
 
 ```bash
 # List users
-barbossa admin users
+barbossa users list
 
 # Add user
-barbossa admin users add USERNAME [options]
-  --admin            Make user an admin
+barbossa users add USERNAME [options]
   --password PASS    Set password (prompts if not provided)
 
 # Remove user
-barbossa admin users remove USERNAME [options]
+barbossa users remove USERNAME [options]
   --force            Skip confirmation
 
 # Update user
-barbossa admin users update USERNAME [options]
+barbossa users update USERNAME [options]
   --password PASS    New password
-  --admin            Set admin status (true/false)
 
 # Examples
-barbossa admin users
-barbossa admin users add kid
-barbossa admin users add parent --admin
-barbossa admin users remove kid --force
-barbossa admin users update kid --password newpass
+barbossa users list
+barbossa users add kid
+barbossa users add parent
+barbossa users remove kid --force
+barbossa users update kid --password newpass
 ```
 
 ### Library Maintenance
 
 ```bash
 # Full rescan
-barbossa admin rescan
+barbossa maintenance rescan
 
 # Verify file integrity
-barbossa admin integrity [options]
+barbossa maintenance integrity [options]
   --fix              Attempt to fix issues
 
 # Find duplicates
-barbossa admin dupes [options]
+barbossa maintenance dupes [options]
   --action ACTION    report, keep-best, interactive
 
 # Examples
-barbossa admin rescan
-barbossa admin integrity
-barbossa admin integrity --fix
-barbossa admin dupes --action report
+barbossa maintenance rescan
+barbossa maintenance integrity
+barbossa maintenance integrity --fix
+barbossa maintenance dupes --action report
 ```
 
 ---
 
-## TorrentLeech Commands (Admin Only)
+## TorrentLeech Commands
 
 ### Check if Exists
 
@@ -416,7 +414,7 @@ barbossa plex scan [options]
 # Examples
 barbossa plex status
 barbossa plex scan
-barbossa plex scan --path "/music/library/Pink Floyd"
+barbossa plex scan --path "/music/artists/Pink Floyd"
 ```
 
 ### Bandcamp
@@ -442,7 +440,7 @@ barbossa settings
 # Get specific setting
 barbossa settings get KEY
 
-# Set value (admin only)
+# Set value
 barbossa settings set KEY VALUE
 
 # Examples
@@ -544,7 +542,8 @@ barbossa import scan|review|approve|reject
 
 barbossa export [--dest PATH --format FORMAT]
 
-barbossa admin users|rescan|integrity|dupes
+barbossa users list|add|remove|update
+barbossa maintenance rescan|integrity|dupes
 
 barbossa tl check|upload
 

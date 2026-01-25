@@ -13,11 +13,6 @@ function PrivateRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" />
 }
 
-function AdminRoute({ children }) {
-  const isAdmin = useAuthStore(state => state.user?.is_admin)
-  return isAdmin ? children : <Navigate to="/" />
-}
-
 export default function App() {
   const checkAuth = useAuthStore(state => state.checkAuth)
 
@@ -37,11 +32,7 @@ export default function App() {
         <Route index element={<Library />} />
         <Route path="my-library" element={<UserLibrary />} />
         <Route path="downloads" element={<Downloads />} />
-        <Route path="settings" element={
-          <AdminRoute>
-            <Settings />
-          </AdminRoute>
-        } />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   )

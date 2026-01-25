@@ -68,30 +68,30 @@ type = local
 
 ```bash
 # Sync local to remote (mirror - deletes remote files not in source)
-rclone sync /music/library remote:barbossa-backup/library --progress
+rclone sync /music/artists remote:barbossa-backup/library --progress
 
 # Sync specific artist
-rclone sync "/music/library/Pink Floyd" "remote:barbossa-backup/library/Pink Floyd" --progress
+rclone sync "/music/artists/Pink Floyd" "remote:barbossa-backup/library/Pink Floyd" --progress
 ```
 
 ### Copy (Additive)
 
 ```bash
 # Copy new files only (does not delete)
-rclone copy /music/library remote:barbossa-backup/library --progress
+rclone copy /music/artists remote:barbossa-backup/library --progress
 
 # Copy with bandwidth limit (10MB/s)
-rclone copy /music/library remote:barbossa-backup/library --bwlimit 10M --progress
+rclone copy /music/artists remote:barbossa-backup/library --bwlimit 10M --progress
 ```
 
 ### Verify
 
 ```bash
 # Check for differences without transferring
-rclone check /music/library remote:barbossa-backup/library
+rclone check /music/artists remote:barbossa-backup/library
 
 # Verify checksums
-rclone check /music/library remote:barbossa-backup/library --checksum
+rclone check /music/artists remote:barbossa-backup/library --checksum
 ```
 
 ### List
@@ -232,14 +232,14 @@ def backup_to_cloud(destination_config: dict, full: bool = False):
 
     try:
         # Run sync
-        result = service.sync('/music/library')
+        result = service.sync('/music/artists')
 
         if not result['success']:
             raise Exception(result['stderr'])
 
         # Verify if configured
         if destination_config.get('verify_after'):
-            verify = service.verify('/music/library')
+            verify = service.verify('/music/artists')
             if not verify['verified']:
                 raise Exception(f"Verification failed: {verify['differences']}")
 
@@ -284,21 +284,21 @@ CELERY_BEAT_SCHEDULE = {
 
 ```bash
 # Restore entire library
-rclone sync remote:barbossa-backup/library /music/library --progress
+rclone sync remote:barbossa-backup/library /music/artists --progress
 
 # Verify after restore
-rclone check remote:barbossa-backup/library /music/library --checksum
+rclone check remote:barbossa-backup/library /music/artists --checksum
 ```
 
 ### Partial Restore
 
 ```bash
 # Restore single artist
-rclone copy "remote:barbossa-backup/library/Pink Floyd" "/music/library/Pink Floyd" --progress
+rclone copy "remote:barbossa-backup/library/Pink Floyd" "/music/artists/Pink Floyd" --progress
 
 # Restore single album
 rclone copy "remote:barbossa-backup/library/Pink Floyd/The Dark Side of the Moon (1973)" \
-  "/music/library/Pink Floyd/The Dark Side of the Moon (1973)" --progress
+  "/music/artists/Pink Floyd/The Dark Side of the Moon (1973)" --progress
 ```
 
 ## Performance Tuning
@@ -306,7 +306,7 @@ rclone copy "remote:barbossa-backup/library/Pink Floyd/The Dark Side of the Moon
 ### Large Libraries (10,000+ albums)
 
 ```bash
-rclone sync /music/library remote:barbossa-backup/library \
+rclone sync /music/artists remote:barbossa-backup/library \
   --transfers 8 \           # Parallel file transfers
   --checkers 16 \           # Parallel hash checkers
   --buffer-size 64M \       # Memory buffer per transfer
@@ -319,10 +319,10 @@ rclone sync /music/library remote:barbossa-backup/library \
 
 ```bash
 # Limit to 50MB/s
-rclone sync /music/library remote:barbossa-backup/library --bwlimit 50M
+rclone sync /music/artists remote:barbossa-backup/library --bwlimit 50M
 
 # Time-based limits (full speed 1AM-6AM, 10MB/s otherwise)
-rclone sync /music/library remote:barbossa-backup/library \
+rclone sync /music/artists remote:barbossa-backup/library \
   --bwlimit "01:00,off 06:00,10M"
 ```
 
@@ -330,7 +330,7 @@ rclone sync /music/library remote:barbossa-backup/library \
 
 ```bash
 # Exclude temp files and caches
-rclone sync /music/library remote:barbossa-backup/library \
+rclone sync /music/artists remote:barbossa-backup/library \
   --exclude "*.tmp" \
   --exclude ".DS_Store" \
   --exclude "Thumbs.db" \
@@ -357,10 +357,10 @@ Password or pass phrase for salt> [enter different password]
 Usage:
 ```bash
 # Backup (encrypted)
-rclone sync /music/library crypt-backup:/library --progress
+rclone sync /music/artists crypt-backup:/library --progress
 
 # Restore (auto-decrypts)
-rclone sync crypt-backup:/library /music/library --progress
+rclone sync crypt-backup:/library /music/artists --progress
 ```
 
 ## Monitoring
@@ -368,7 +368,7 @@ rclone sync crypt-backup:/library /music/library --progress
 ### Progress Logging
 
 ```bash
-rclone sync /music/library remote:barbossa-backup/library \
+rclone sync /music/artists remote:barbossa-backup/library \
   --progress \
   --stats 30s \
   --log-file /var/log/barbossa/rclone.log \

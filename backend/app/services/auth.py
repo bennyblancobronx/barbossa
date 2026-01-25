@@ -53,12 +53,11 @@ class AuthService:
         """Get a user by ID."""
         return self.db.query(User).filter(User.id == user_id).first()
 
-    def create_user(self, username: str, password: str, is_admin: bool = False) -> User:
+    def create_user(self, username: str, password: str) -> User:
         """Create a new user."""
         user = User(
             username=username,
             password_hash=self.hash_password(password),
-            is_admin=is_admin,
         )
         self.db.add(user)
         self.db.commit()

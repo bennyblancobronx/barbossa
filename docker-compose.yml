@@ -131,7 +131,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD:-barbossa}@db:5432/barbossa
       - REDIS_URL=redis://redis:6379/0
-      - WATCH_PATHS=/music/downloads/lidarr,/music/import/pending
+      - WATCH_PATHS=/music/downloads,/music/import
     depends_on:
       - barbossa
       - redis

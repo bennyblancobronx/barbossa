@@ -1,5 +1,108 @@
 # Changelog
 
+## [0.1.32] - 2026-01-25
+
+### Fixed - Admin System Cleanup
+- Removed all remnants of admin user system that was already removed in 0.1.30
+- Fixed bcrypt compatibility (pinned to 4.0.1 for passlib compatibility)
+- Removed unused require_admin import from lidarr.py
+- Fixed test assertions for unauthorized responses (401 vs 403)
+- Fixed test fixtures calling create_user with removed is_admin parameter
+- Fixed heart_workflow test to use "items" instead of "albums" in response
+- Removed admin_connections from WebSocket manager
+- Removed broadcast_to_admins calls from download progress broadcasts
+- Removed admin-only checks from CLI auth commands
+- Removed TestAdminWorkflow tests
+
+### Files Modified
+- backend/app/api/downloads.py - Removed is_admin checks, users see only their own downloads
+- backend/app/api/exports.py - Removed is_admin checks, users see only their own exports
+- backend/app/api/websocket.py - Removed is_admin parameter from manager.connect
+- backend/app/api/lidarr.py - Removed unused require_admin import
+- backend/app/websocket.py - Removed admin_connections, broadcast_to_admins method
+- backend/app/cli/auth.py - Removed is_admin display in whoami and login
+- backend/tests/test_auth.py - Fixed unauthorized test assertion (401)
+- backend/tests/test_websocket.py - Removed admin_connections tests, fixed SessionLocal patches
+- backend/tests/test_downloads.py - Removed admin_connections test
+- backend/tests/test_e2e.py - Removed TestAdminWorkflow, fixed items vs albums in response
+
+### Test Status
+- All 73 tests passing
+
+---
+
+## [0.1.31] - 2026-01-25
+
+### Changed - Path Configuration Standardized
+- Master library path changed from /music/library to /music/artists
+- All paths now consistent with user's directory structure:
+  - /music/artists - Master library (all music at artist level)
+  - /music/users - Per-user symlinked libraries
+  - /music/database - Database backups
+  - /music/downloads - Temp download staging
+  - /music/import - Watch folder for imports
+  - /music/export - Export destination
+
+### Files Modified
+- backend/app/config.py - Updated music_library default to /music/artists, added music_database
+- backend/app/api/settings.py - Added music_database to SettingsResponse
+- docker-compose.yml - Updated watch paths
+- docker-compose.prod.yml - Changed MUSIC_LIBRARY env vars to /music/artists
+- .env.example - Updated path documentation
+- backups/backup.sh - Uses /music/database for backups
+- contracts.md - Updated library structure diagram
+- backend/tests/test_library.py - Updated test paths
+
+### Documentation Updated
+- techguide.md
+- docs/phases/phase-1-core.md
+- docs/cli-spec.md
+- docs/playlist-sync.md
+- docs/rclone-backup.md
+- docs/bandcamp-integration.md
+- docs/plex-integration.md
+- docs/lidarr-integration.md
+- docs/exiftool-integration.md
+- docs/beets-integration.md
+
+---
+
+## [0.1.30] - 2026-01-25
+
+### Removed - Admin User Concept
+- Removed is_admin column from users table
+- All authenticated users can now access all features
+- Settings page accessible to all users
+- Album deletion available to all users
+- User management available to all users
+
+### Files Modified
+- backend/app/models/user.py - Removed is_admin column
+- backend/app/schemas/user.py - Removed is_admin from schemas
+- backend/app/services/auth.py - Removed is_admin parameter from create_user
+- backend/app/dependencies.py - Removed require_admin function
+- backend/app/api/auth.py - Removed is_admin from responses
+- backend/app/api/admin.py - Replaced require_admin with get_current_user
+- backend/app/api/settings.py - Replaced require_admin with get_current_user
+- backend/app/api/review.py - Replaced require_admin with get_current_user
+- backend/app/api/torrentleech.py - Replaced require_admin with get_current_user
+- backend/app/api/library.py - Replaced require_admin with get_current_user
+- backend/app/cli/admin.py - Removed admin-only checks
+- backend/db/schema.sql - Removed is_admin column and default user
+- backend/alembic/versions/001_initial_schema.py - Removed is_admin column
+- backend/tests/conftest.py - Removed admin fixtures
+- backend/tests/test_auth.py - Removed admin assertions
+- frontend/src/App.jsx - Removed AdminRoute
+- frontend/src/components/Sidebar.jsx - Settings link always visible
+- frontend/src/components/AlbumCard.jsx - Trash icon available to all
+- frontend/src/pages/Settings.jsx - Removed admin badges and checkbox
+- frontend/src/services/websocket.js - Downloads channel for all users
+
+### Files Created
+- backend/alembic/versions/006_remove_admin_user.py - Migration to drop is_admin
+
+---
+
 ## [0.1.29] - 2026-01-25
 
 ### Fixed - Qobuz Settings Not Persisting

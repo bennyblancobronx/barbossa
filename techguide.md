@@ -134,7 +134,7 @@ volumes:
 | GET | `/api/albums/{id}` | Get album details |
 | GET | `/api/albums/{id}/tracks` | Get album tracks with quality info |
 | GET | `/api/search?q=&type=` | Search library (type: artist/album/track) |
-| DELETE | `/api/albums/{id}` | Delete album from disk (admin only) |
+| DELETE | `/api/albums/{id}` | Delete album from disk |
 
 ### User Library
 
@@ -192,7 +192,7 @@ Downloads are a temporary staging area only. Imported albums land in the master 
 | DELETE | `/api/admin/users/{id}` | Delete user |
 | GET | `/api/settings` | Get settings |
 | PUT | `/api/settings` | Update settings (music_library, qobuz_quality, etc.) |
-| GET | `/api/settings/browse?path=` | Browse filesystem directories (admin only) |
+| GET | `/api/settings/browse?path=` | Browse filesystem directories |
 | GET | `/api/admin/torrentleech/check?q=` | Check if album exists on TL |
 | POST | `/api/admin/torrentleech/upload/{album_id}` | Upload album to TL |
 | POST | `/api/admin/rescan` | Rescan library |
@@ -223,7 +223,7 @@ Connect: `ws://localhost:8080/ws?token=<jwt>`
 | `download:complete` | Server->Client | Download finished |
 | `download:error` | Server->Client | Download failed |
 | `import:complete` | Server->Client | Import finished |
-| `import:review` | Server->Client | Item needs review (admin only) |
+| `import:review` | Server->Client | Item needs review |
 | `activity` | Server->Client | User activity (hearts, new albums) |
 | `notification` | Server->Client | User-specific notification |
 | `library:updated` | Server->Client | Library change (add/update/delete) |
@@ -232,7 +232,7 @@ Connect: `ws://localhost:8080/ws?token=<jwt>`
 | `subscribe` | Client->Server | Subscribe to channel |
 | `unsubscribe` | Client->Server | Unsubscribe from channel |
 
-Channels: `downloads` (admin only), `activity`, `library`
+Channels: `downloads`, `activity`, `library`
 
 ---
 
@@ -988,7 +988,7 @@ server:
   port: 8080
 
 paths:
-  master_library: /music/library
+  master_library: /music/artists
   user_libraries: /music/users
   downloads: /music/downloads
   import_pending: /music/import/pending
@@ -1077,8 +1077,8 @@ docker-compose up -d
 docker-compose logs -f barbossa
 docker-compose logs -f worker
 
-# Create admin user
-docker-compose exec barbossa python -m app.cli create-user --admin username
+# Create user
+docker-compose exec barbossa python -m app.cli create-user username
 
 # Rescan library
 docker-compose exec barbossa python -m app.cli rescan

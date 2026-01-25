@@ -13,7 +13,7 @@ def sample_library(db):
         name="The Beatles",
         normalized_name="beatles",
         sort_name="Beatles, The",
-        path="/music/library/The Beatles",
+        path="/music/artists/The Beatles",
     )
     db.add(artist)
     db.commit()
@@ -25,7 +25,7 @@ def sample_library(db):
         title="Abbey Road",
         normalized_title="abbey road",
         year=1969,
-        path="/music/library/The Beatles/Abbey Road (1969)",
+        path="/music/artists/The Beatles/Abbey Road (1969)",
         total_tracks=17,
         available_tracks=17,
         source="qobuz",
@@ -42,7 +42,7 @@ def sample_library(db):
             title=f"Track {i}",
             normalized_title=f"track {i}",
             track_number=i,
-            path=f"/music/library/The Beatles/Abbey Road (1969)/0{i} - Track {i}.flac",
+            path=f"/music/artists/The Beatles/Abbey Road (1969)/0{i} - Track {i}.flac",
             sample_rate=96000,
             bit_depth=24,
             format="FLAC",
