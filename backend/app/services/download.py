@@ -88,15 +88,16 @@ class DownloadService:
                 callback=progress_callback
             )
 
-            # Import to library - Qobuz has excellent metadata, skip beets identification
+            # Import to library - Qobuz is trusted, skip confidence check but run beets for lyrics/artwork
             download.status = DownloadStatus.IMPORTING.value
             self.db.commit()
 
-            album = await self._import_trusted_source(
+            album = await self._import_album(
                 downloaded_path,
                 source=DownloadSource.QOBUZ.value,
                 source_url=url,
-                user_id=download.user_id
+                user_id=download.user_id,
+                min_confidence=0.0  # Trust Qobuz - never send to review
             )
 
             # Complete

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.59] - 2026-01-25
+
+### Fixed - SMB Folder Detection
+- Streamrip now correctly identifies downloaded folders on SMB mounts
+- Replaced unreliable mtime-based detection with before/after folder comparison
+- Fixes issue where wrong album was processed after download
+
+---
+
 ## [0.1.58] - 2026-01-25
 
 ### Changed - Qobuz Auto-Import

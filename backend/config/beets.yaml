@@ -1,0 +1,48 @@
+directory: /music/artists
+library: /config/beets.db
+
+import:
+  move: yes
+  write: yes
+  autotag: yes
+  quiet: yes
+  quiet_fallback: asis
+
+match:
+  strong_rec_thresh: 0.10
+  preferred:
+    countries: ['US', 'GB']
+    media: ['Digital Media', 'CD']
+
+paths:
+  default: $albumartist/$album%aunique{}/$track $title
+  singleton: Non-Album/$artist - $title
+  comp: Compilations/$album%aunique{}/$track $title
+
+plugins:
+  - fetchart
+  - embedart
+  - lyrics
+  - lastgenre
+  - scrub
+
+fetchart:
+  auto: yes
+  minwidth: 500
+  sources: coverart itunes amazon albumart
+
+embedart:
+  auto: yes
+  remove_art_file: no
+
+lyrics:
+  auto: yes
+  fallback: ''
+  sources: lrclib musixmatch genius
+
+lastgenre:
+  auto: yes
+  source: album
+
+scrub:
+  auto: yes

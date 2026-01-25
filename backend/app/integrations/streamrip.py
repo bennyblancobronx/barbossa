@@ -199,6 +199,11 @@ class StreamripClient:
         if not 0 <= quality <= 4:
             quality = 4
 
+        # Capture existing folders BEFORE download (SMB timestamps are unreliable)
+        existing_folders = set(
+            f.name for f in self.download_path.iterdir() if f.is_dir()
+        )
+
         # Note: rip url doesn't support --quality or --output flags
         # Quality is set in config.toml, and output path is set in config.toml downloads.folder
         # We sync config before downloading, so quality should already be set
@@ -232,9 +237,9 @@ class StreamripClient:
 
         await process.wait()
 
-        # If we didn't catch the output path, find the newest directory
+        # If we didn't catch the output path, find the NEW folder by comparing sets
         if output_path is None:
-            output_path = self._find_newest_folder()
+            output_path = self._find_new_folder(existing_folders)
 
         # Validate the download - check for audio files even if return code != 0
         # (streamrip may crash at cleanup step but download succeeded)
@@ -281,6 +286,11 @@ class StreamripClient:
         # Sync credentials before download
         self._ensure_credentials()
 
+        # Capture existing folders BEFORE download (SMB timestamps are unreliable)
+        existing_folders = set(
+            f.name for f in self.download_path.iterdir() if f.is_dir()
+        )
+
         # Note: download by ID uses different syntax
         # rip <media_type> qobuz <id>
         cmd = [
@@ -311,8 +321,9 @@ class StreamripClient:
 
         await process.wait()
 
+        # If we didn't catch the output path, find the NEW folder by comparing sets
         if output_path is None:
-            output_path = self._find_newest_folder()
+            output_path = self._find_new_folder(existing_folders)
 
         # Validate the download - check for audio files even if return code != 0
         if output_path and output_path.exists():
@@ -426,8 +437,47 @@ class StreamripClient:
         return None
 
     def _find_newest_folder(self) -> Path:
-        """Find the most recently modified folder in download path."""
+        """Find the most recently modified folder in download path.
+
+        Note: Unreliable on SMB mounts. Use _find_new_folder() instead.
+        """
         folders = [f for f in self.download_path.iterdir() if f.is_dir()]
         if not folders:
             raise StreamripError("No downloaded folders found")
         return max(folders, key=lambda f: f.stat().st_mtime)
+
+    def _find_new_folder(self, existing_folders: set) -> Path:
+        """Find newly created folder by comparing to pre-download snapshot.
+
+        Args:
+            existing_folders: Set of folder names that existed before download
+
+        Returns:
+            Path to the new folder
+
+        Raises:
+            StreamripError: If no new folder was created
+        """
+        current_folders = set(
+            f.name for f in self.download_path.iterdir() if f.is_dir()
+        )
+        new_folders = current_folders - existing_folders
+
+        if not new_folders:
+            raise StreamripError("No new folder created - download may have failed")
+
+        if len(new_folders) == 1:
+            return self.download_path / new_folders.pop()
+
+        # Multiple new folders - return the one with audio files
+        for folder_name in new_folders:
+            folder_path = self.download_path / folder_name
+            audio_files = [
+                f for f in folder_path.rglob("*")
+                if f.suffix.lower() in {".flac", ".mp3", ".m4a", ".ogg", ".wav"}
+            ]
+            if audio_files:
+                return folder_path
+
+        # No audio files found in any new folder - return first one
+        return self.download_path / new_folders.pop()
