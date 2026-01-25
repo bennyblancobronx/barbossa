@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.1.34] - 2026-01-25
+
+### Added - Missing Subdirectories
+Created required subdirectories per contracts.md specification:
+- /Volumes/media/library/music/import/pending - Drop files here for import
+- /Volumes/media/library/music/import/review - Beets unidentified content
+- /Volumes/media/library/music/import/rejected - Duplicates/corrupt files
+- /Volumes/media/library/music/downloads/qobuz - Streamrip output
+- /Volumes/media/library/music/downloads/lidarr - Lidarr completed downloads
+- /Volumes/media/library/music/downloads/youtube - yt-dlp output
+
+### Verified
+- All 73 backend tests passing
+- All 5 directory paths correctly configured
+- Frontend settings UI correctly translates container/host paths
+
+---
+
+## [0.1.33] - 2026-01-25
+
+### Fixed - Path Configuration Audit
+- Fixed .env MUSIC_PATH from /Volumes/media to /Volumes/media/library/music
+- Fixed techguide.md diagram: changed "library/" to "artists/" to match contracts.md
+- Added "database/" to techguide.md volume structure diagram
+
+### Audit Results
+All paths now correctly configured:
+- /Volumes/media/library/music/artists - Master library (all music at artist level)
+- /Volumes/media/library/music/users - Per-user symlinked libraries
+- /Volumes/media/library/music/database - Database backups
+- /Volumes/media/library/music/downloads - Temp download staging
+- /Volumes/media/library/music/import - Watch folder for imports
+
+### Files Modified
+- .env - Corrected MUSIC_PATH and MUSIC_PATH_HOST
+- techguide.md - Fixed volume structure diagram
+
+---
+
 ## [0.1.32] - 2026-01-25
 
 ### Fixed - Admin System Cleanup

@@ -18,10 +18,11 @@
 |                                                                        |
 +-----------------------------------------------------------------------+
 |   Volume: /music                                                       |
-|   +-- library/      (Master - all music)                              |
-|   +-- users/        (Per-user symlinks)                               |
+|   +-- artists/      (Master library - all music)                      |
+|   +-- users/        (Per-user symlinked libraries)                    |
 |   +-- downloads/    (Temp: qobuz/, lidarr/)                           |
 |   +-- import/       (pending/, review/, rejected/)                    |
+|   +-- database/     (Database backups)                                |
 |   +-- export/       (User export staging)                             |
 +-----------------------------------------------------------------------+
             |                           |
