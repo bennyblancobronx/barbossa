@@ -17,12 +17,16 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 24
 
-    # Music paths
+    # Music paths (container paths)
     music_library: str = "/music/library"
     music_users: str = "/music/users"
     music_downloads: str = "/music/downloads"
     music_import: str = "/music/import"
     music_export: str = "/music/export"
+
+    # Host path mapping (for UI display)
+    # Container /music = Host MUSIC_PATH_HOST
+    music_path_host: str = ""  # e.g., /Volumes/media
 
     # Paths aliases for compatibility
     @property

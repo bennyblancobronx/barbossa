@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.27] - 2026-01-25
+
+### Changed - Host Path Display
+- Settings now displays actual host paths (e.g., /Volumes/media/...) instead of container paths
+- Added MUSIC_PATH_HOST env var for path translation
+- Browse modal shows host paths for clarity
+
+### Files Modified
+- frontend/src/pages/Settings.jsx - Path translation between host/container
+- backend/app/config.py - Added music_path_host setting
+- backend/app/api/settings.py - Include music_path_host in response
+- docker-compose.yml - Pass MUSIC_PATH_HOST to container
+- .env - Added MUSIC_PATH_HOST
+
+---
+
 ## [0.1.26] - 2026-01-25
 
 ### Added - Dual Library Path Settings

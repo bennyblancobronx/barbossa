@@ -32,6 +32,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       # JWT Secret (CHANGE IN PRODUCTION)
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      # Host path mapping for UI display
+      - MUSIC_PATH_HOST=${MUSIC_PATH_HOST:-${MUSIC_PATH:-/path/to/music}}
       # Qobuz credentials
       - QOBUZ_EMAIL=${QOBUZ_EMAIL}
       - QOBUZ_PASSWORD=${QOBUZ_PASSWORD}

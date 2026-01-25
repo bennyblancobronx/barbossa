@@ -20,7 +20,11 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 class SettingsResponse(BaseModel):
     """Settings response."""
-    # Paths
+    # Path mapping (for UI display translation)
+    music_path_host: str  # Host path, e.g., /Volumes/media
+    music_path_container: str = "/music"  # Container mount point
+
+    # Paths (container paths)
     music_library: str
     music_users: str
     music_downloads: str
@@ -86,6 +90,7 @@ async def get_settings(
                 plex_connected = False
 
     return SettingsResponse(
+        music_path_host=settings.music_path_host,
         music_library=settings.music_library,
         music_users=settings.music_users,
         music_downloads=settings.music_downloads,

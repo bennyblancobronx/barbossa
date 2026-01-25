@@ -49,8 +49,22 @@ export default function Settings() {
 }
 
 function GeneralSettings({ settings }) {
-  const [musicPath, setMusicPath] = useState(settings?.music_library || '')
-  const [usersPath, setUsersPath] = useState(settings?.music_users || '')
+  // Path translation helpers
+  const hostPath = settings?.music_path_host || ''
+  const containerPath = settings?.music_path_container || '/music'
+
+  const toHostPath = (path) => {
+    if (!hostPath || !path) return path
+    return path.replace(containerPath, hostPath)
+  }
+
+  const toContainerPath = (path) => {
+    if (!hostPath || !path) return path
+    return path.replace(hostPath, containerPath)
+  }
+
+  const [musicPath, setMusicPath] = useState(toHostPath(settings?.music_library) || '')
+  const [usersPath, setUsersPath] = useState(toHostPath(settings?.music_users) || '')
   const [browserTarget, setBrowserTarget] = useState(null)
   const [browserPath, setBrowserPath] = useState('/')
   const [directories, setDirectories] = useState([])
@@ -59,9 +73,9 @@ function GeneralSettings({ settings }) {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    if (settings?.music_library) setMusicPath(settings.music_library)
-    if (settings?.music_users) setUsersPath(settings.music_users)
-  }, [settings?.music_library, settings?.music_users])
+    if (settings?.music_library) setMusicPath(toHostPath(settings.music_library))
+    if (settings?.music_users) setUsersPath(toHostPath(settings.music_users))
+  }, [settings?.music_library, settings?.music_users, hostPath])
 
   const updateSettings = useMutation(
     (data) => api.updateSettings(data),
@@ -80,9 +94,12 @@ function GeneralSettings({ settings }) {
   const loadDirectories = async (path) => {
     setLoadingDirs(true)
     try {
-      const response = await api.browseDirectory(path)
+      // Convert host path to container path for API call
+      const apiPath = toContainerPath(path)
+      const response = await api.browseDirectory(apiPath)
       setDirectories(response.data.directories || [])
-      setBrowserPath(response.data.current_path || path)
+      // Convert container path back to host path for display
+      setBrowserPath(toHostPath(response.data.current_path || apiPath))
     } catch (error) {
       addNotification({ type: 'error', message: 'Failed to load directories' })
     } finally {
@@ -92,7 +109,7 @@ function GeneralSettings({ settings }) {
 
   const openBrowser = (target, currentPath) => {
     setBrowserTarget(target)
-    loadDirectories(currentPath || '/')
+    loadDirectories(currentPath || hostPath || '/')
   }
 
   const selectDirectory = (dir) => {
@@ -130,7 +147,7 @@ function GeneralSettings({ settings }) {
             className="input"
             value={musicPath}
             onChange={e => setMusicPath(e.target.value)}
-            placeholder="/music/library/music/artists"
+            placeholder={`${hostPath || '/Volumes/media'}/library/music/artists`}
           />
           <button
             type="button"
@@ -142,8 +159,8 @@ function GeneralSettings({ settings }) {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => updateSettings.mutate({ music_library: musicPath })}
-            disabled={updateSettings.isLoading || musicPath === settings?.music_library}
+            onClick={() => updateSettings.mutate({ music_library: toContainerPath(musicPath) })}
+            disabled={updateSettings.isLoading || toContainerPath(musicPath) === settings?.music_library}
           >
             Save
           </button>
@@ -159,7 +176,7 @@ function GeneralSettings({ settings }) {
             className="input"
             value={usersPath}
             onChange={e => setUsersPath(e.target.value)}
-            placeholder="/music/library/music/users"
+            placeholder={`${hostPath || '/Volumes/media'}/library/music/users`}
           />
           <button
             type="button"
@@ -171,8 +188,8 @@ function GeneralSettings({ settings }) {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => updateSettings.mutate({ music_users: usersPath })}
-            disabled={updateSettings.isLoading || usersPath === settings?.music_users}
+            onClick={() => updateSettings.mutate({ music_users: toContainerPath(usersPath) })}
+            disabled={updateSettings.isLoading || toContainerPath(usersPath) === settings?.music_users}
           >
             Save
           </button>
