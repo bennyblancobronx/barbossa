@@ -22,7 +22,7 @@ def upgrade() -> None:
     op.add_column('downloads', sa.Column('result_review_id', sa.Integer(), nullable=True))
     op.create_foreign_key(
         'fk_downloads_result_review_id',
-        'downloads', 'pending_reviews',
+        'downloads', 'pending_review',
         ['result_review_id'], ['id'],
         ondelete='SET NULL'
     )
