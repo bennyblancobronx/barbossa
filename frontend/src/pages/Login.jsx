@@ -28,45 +28,52 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-container">
-        <h1 className="text-2xl login-title">barbossa</h1>
+      <div className="login-card">
+        <header className="login-header">
+          <h1 className="login-brand">barbossa</h1>
+          <p className="login-tagline">Family Music Library</p>
+        </header>
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && (
-            <div className="login-error">{error}</div>
+            <div className="login-error" role="alert">{error}</div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="username" className="form-label">Username</label>
+          <div className="field">
+            <label htmlFor="username" className="label">Username</label>
             <input
               id="username"
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              className="input-default"
+              className="input"
+              placeholder="Enter username"
               required
               autoFocus
+              autoComplete="username"
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">Password</label>
+          <div className="field">
+            <label htmlFor="password" className="label">Password</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="input-default"
+              className="input"
+              placeholder="Enter password"
               required
+              autoComplete="current-password"
             />
           </div>
 
           <button
             type="submit"
-            className="btn-primary login-submit"
+            className="btn btn-primary login-btn"
             disabled={isLoading}
           >
-            {isLoading ? 'Logging in...' : 'Login'}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>

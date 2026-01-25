@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.25] - 2026-01-25
+
+### Fixed - Settings & Login UI
+- Settings library path input now editable (was disabled)
+- Added directory browser modal for path selection
+- Login page redesigned with Braun Design Language
+- Improved spacing, typography, and visual hierarchy on login
+
+### Added
+- GET /settings/browse endpoint for filesystem browsing (admin only)
+- PUT /settings now supports music_library path updates
+
+### Files Modified
+- frontend/src/pages/Login.jsx - Braun design cleanup
+- frontend/src/pages/Settings.jsx - Editable path input + browse modal
+- frontend/src/services/api.js - browseDirectory API function
+- frontend/src/styles/design-system.css - Login styles, path input group, browser styles
+- backend/app/api/settings.py - Browse endpoint, music_library in update schema
+
+---
+
 ## [0.1.24] - 2026-01-25
 
 ### Added - Final Audit Completion

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import * as api from '../services/api'
 import { useNotificationStore } from '../stores/notifications'
@@ -49,23 +49,105 @@ export default function Settings() {
 }
 
 function GeneralSettings({ settings }) {
+  const [musicPath, setMusicPath] = useState(settings?.music_library || '/music/library')
+  const [showBrowser, setShowBrowser] = useState(false)
+  const [browserPath, setBrowserPath] = useState('/')
+  const [directories, setDirectories] = useState([])
+  const [loadingDirs, setLoadingDirs] = useState(false)
+  const { addNotification } = useNotificationStore()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (settings?.music_library) {
+      setMusicPath(settings.music_library)
+    }
+  }, [settings?.music_library])
+
+  const updatePath = useMutation(
+    (path) => api.updateSettings({ music_library: path }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('settings')
+        addNotification({ type: 'success', message: 'Library path updated' })
+      },
+      onError: (error) => {
+        addNotification({ type: 'error', message: error.response?.data?.detail || 'Failed to update path' })
+      }
+    }
+  )
+
+  const loadDirectories = async (path) => {
+    setLoadingDirs(true)
+    try {
+      const response = await api.browseDirectory(path)
+      setDirectories(response.data.directories || [])
+      setBrowserPath(response.data.current_path || path)
+    } catch (error) {
+      addNotification({ type: 'error', message: 'Failed to load directories' })
+    } finally {
+      setLoadingDirs(false)
+    }
+  }
+
+  const openBrowser = () => {
+    setShowBrowser(true)
+    loadDirectories(musicPath || '/')
+  }
+
+  const selectDirectory = (dir) => {
+    const newPath = browserPath === '/' ? `/${dir}` : `${browserPath}/${dir}`
+    loadDirectories(newPath)
+  }
+
+  const goUp = () => {
+    const parent = browserPath.split('/').slice(0, -1).join('/') || '/'
+    loadDirectories(parent)
+  }
+
+  const confirmSelection = () => {
+    setMusicPath(browserPath)
+    setShowBrowser(false)
+  }
+
+  const handleSave = () => {
+    updatePath.mutate(musicPath)
+  }
+
   return (
     <section className="settings-section">
       <h2 className="text-lg">Library Settings</h2>
 
-      <div className="form-group">
-        <label className="form-label">Music Library Path</label>
-        <input
-          type="text"
-          className="input-default"
-          value={settings?.music_path || '/music/library'}
-          disabled
-        />
-        <p className="form-hint text-muted">Set via environment variable</p>
+      <div className="field">
+        <label className="label">Music Library Path</label>
+        <div className="path-input-group">
+          <input
+            type="text"
+            className="input"
+            value={musicPath}
+            onChange={e => setMusicPath(e.target.value)}
+            placeholder="/path/to/music/library"
+          />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={openBrowser}
+          >
+            Browse
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={updatePath.isLoading || musicPath === settings?.music_library}
+          >
+            Save
+          </button>
+        </div>
+        <p className="field-hint">Location of the master music library</p>
       </div>
 
-      <div className="form-group">
-        <label className="form-label">Library Stats</label>
+      <div className="field">
+        <label className="label">Library Stats</label>
         <div className="stats-grid">
           <div className="stat-item">
             <span className="stat-value">{settings?.stats?.artists || 0}</span>
@@ -81,6 +163,58 @@ function GeneralSettings({ settings }) {
           </div>
         </div>
       </div>
+
+      {showBrowser && (
+        <div className="modal-backdrop" onClick={() => setShowBrowser(false)}>
+          <div className="modal modal-md" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Select Directory</h3>
+              <button className="modal-close" onClick={() => setShowBrowser(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="browser-path">
+                <span className="text-muted">Current:</span> {browserPath}
+              </div>
+              <div className="browser-list">
+                {browserPath !== '/' && (
+                  <button className="browser-item" onClick={goUp} disabled={loadingDirs}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                    ..
+                  </button>
+                )}
+                {loadingDirs ? (
+                  <p className="text-muted">Loading...</p>
+                ) : directories.length === 0 ? (
+                  <p className="text-muted">No subdirectories</p>
+                ) : (
+                  directories.map(dir => (
+                    <button key={dir} className="browser-item" onClick={() => selectDirectory(dir)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                      </svg>
+                      {dir}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={() => setShowBrowser(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={confirmSelection}>
+                Select This Directory
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -104,7 +238,7 @@ function UserManagement({ users }) {
     <section className="settings-section">
       <div className="section-header">
         <h2 className="text-lg">User Management</h2>
-        <button className="btn-secondary" onClick={() => setShowAddUser(true)}>
+        <button className="btn btn-secondary" onClick={() => setShowAddUser(true)}>
           Add User
         </button>
       </div>
@@ -121,7 +255,7 @@ function UserManagement({ users }) {
             </div>
             {!user.is_admin && (
               <button
-                className="btn-ghost text-error"
+                className="btn btn-ghost text-error"
                 onClick={() => {
                   if (confirm(`Delete user ${user.username}?`)) {
                     deleteUser.mutate(user.id)
@@ -172,29 +306,29 @@ function AddUserModal({ onClose }) {
         <h3 className="text-lg">Add User</h3>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Username</label>
+          <div className="field">
+            <label className="label">Username</label>
             <input
               type="text"
-              className="input-default"
+              className="input"
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
+          <div className="field">
+            <label className="label">Password</label>
             <input
               type="password"
-              className="input-default"
+              className="input"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
             />
           </div>
 
-          <div className="form-group">
+          <div className="field">
             <label className="checkbox-label">
               <input
                 type="checkbox"
@@ -206,10 +340,10 @@ function AddUserModal({ onClose }) {
           </div>
 
           <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={onClose}>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={createUser.isLoading}>
+            <button type="submit" className="btn btn-primary" disabled={createUser.isLoading}>
               Create User
             </button>
           </div>
@@ -226,9 +360,9 @@ function SourceSettings({ settings }) {
 
       <div className="source-config">
         <h3 className="text-base">Qobuz</h3>
-        <div className="form-group">
-          <label className="form-label">Quality</label>
-          <select className="input-select" defaultValue={settings?.qobuz_quality || 4}>
+        <div className="field">
+          <label className="label">Quality</label>
+          <select className="input select" defaultValue={settings?.qobuz_quality || 4}>
             <option value="0">MP3 128kbps</option>
             <option value="1">MP3 320kbps</option>
             <option value="2">FLAC 16/44.1</option>
@@ -240,20 +374,20 @@ function SourceSettings({ settings }) {
 
       <div className="source-config">
         <h3 className="text-base">Lidarr</h3>
-        <div className="form-group">
-          <label className="form-label">URL</label>
+        <div className="field">
+          <label className="label">URL</label>
           <input
             type="url"
-            className="input-default"
+            className="input"
             placeholder="http://lidarr:8686"
             defaultValue={settings?.lidarr_url || ''}
           />
         </div>
-        <div className="form-group">
-          <label className="form-label">API Key</label>
+        <div className="field">
+          <label className="label">API Key</label>
           <input
             type="password"
-            className="input-default"
+            className="input"
             placeholder="Enter API key"
             defaultValue={settings?.lidarr_key ? '********' : ''}
           />
@@ -262,20 +396,20 @@ function SourceSettings({ settings }) {
 
       <div className="source-config">
         <h3 className="text-base">Plex</h3>
-        <div className="form-group">
-          <label className="form-label">URL</label>
+        <div className="field">
+          <label className="label">URL</label>
           <input
             type="url"
-            className="input-default"
+            className="input"
             placeholder="http://plex:32400"
             defaultValue={settings?.plex_url || ''}
           />
         </div>
-        <div className="form-group">
-          <label className="form-label">Token</label>
+        <div className="field">
+          <label className="label">Token</label>
           <input
             type="password"
-            className="input-default"
+            className="input"
             placeholder="Enter token"
             defaultValue={settings?.plex_token ? '********' : ''}
           />
@@ -337,14 +471,14 @@ function ReviewQueue({ items }) {
 
             <div className="review-actions">
               <button
-                className="btn-primary"
+                className="btn btn-primary"
                 onClick={() => approve.mutate({ id: item.id })}
                 disabled={approve.isLoading}
               >
                 Accept
               </button>
               <button
-                className="btn-ghost text-error"
+                className="btn btn-ghost text-error"
                 onClick={() => reject.mutate(item.id)}
                 disabled={reject.isLoading}
               >
@@ -377,19 +511,19 @@ function BackupSettings({ settings }) {
     <section className="settings-section">
       <h2 className="text-lg">Backup</h2>
 
-      <div className="form-group">
-        <label className="form-label">Backup Destination</label>
+      <div className="field">
+        <label className="label">Backup Destination</label>
         <input
           type="text"
-          className="input-default"
+          className="input"
           placeholder="/path/to/backup or rclone:remote"
           defaultValue={settings?.backup_destination || ''}
         />
       </div>
 
-      <div className="form-group">
-        <label className="form-label">Schedule</label>
-        <select className="input-select" defaultValue={settings?.backup_schedule || 'weekly'}>
+      <div className="field">
+        <label className="label">Schedule</label>
+        <select className="input select" defaultValue={settings?.backup_schedule || 'weekly'}>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="monthly">Monthly</option>
@@ -397,7 +531,7 @@ function BackupSettings({ settings }) {
       </div>
 
       <button
-        className="btn-secondary"
+        className="btn btn-secondary"
         onClick={() => triggerBackup.mutate()}
         disabled={triggerBackup.isLoading}
       >

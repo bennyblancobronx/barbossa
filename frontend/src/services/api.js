@@ -184,6 +184,10 @@ export const testPlexConnection = (url, token) =>
 export const triggerBandcampSync = () =>
   api.post('/settings/bandcamp/sync')
 
+// Directory browser
+export const browseDirectory = (path) =>
+  api.get('/settings/browse', { params: { path } })
+
 // Admin - User Management
 export const updateUser = (userId, data) =>
   api.put(`/admin/users/${userId}`, data)

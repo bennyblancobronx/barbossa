@@ -191,7 +191,8 @@ Downloads are a temporary staging area only. Imported albums land in the master 
 | PUT | `/api/admin/users/{id}` | Update user |
 | DELETE | `/api/admin/users/{id}` | Delete user |
 | GET | `/api/settings` | Get settings |
-| PUT | `/api/settings` | Update settings |
+| PUT | `/api/settings` | Update settings (music_library, qobuz_quality, etc.) |
+| GET | `/api/settings/browse?path=` | Browse filesystem directories (admin only) |
 | GET | `/api/admin/torrentleech/check?q=` | Check if album exists on TL |
 | POST | `/api/admin/torrentleech/upload/{album_id}` | Upload album to TL |
 | POST | `/api/admin/rescan` | Rescan library |

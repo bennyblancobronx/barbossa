@@ -1,6 +1,8 @@
 """Settings API endpoints."""
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+import os
+from pathlib import Path
+from typing import Optional, Dict, Any, List
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -49,6 +51,7 @@ class SettingsResponse(BaseModel):
 
 class SettingsUpdate(BaseModel):
     """Settings update request."""
+    music_library: Optional[str] = None
     qobuz_quality: Optional[int] = None
     lidarr_url: Optional[str] = None
     lidarr_api_key: Optional[str] = None
@@ -111,7 +114,14 @@ async def update_settings(
     Note: This updates environment variables for the current process.
     For persistent changes, update .env file.
     """
-    import os
+    if data.music_library is not None:
+        # Validate path exists and is a directory
+        lib_path = Path(data.music_library)
+        if not lib_path.exists():
+            raise HTTPException(status_code=400, detail="Path does not exist")
+        if not lib_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path is not a directory")
+        os.environ["MUSIC_LIBRARY"] = str(lib_path)
 
     if data.qobuz_quality is not None:
         os.environ["QOBUZ_QUALITY"] = str(data.qobuz_quality)
@@ -202,3 +212,50 @@ async def trigger_bandcamp_sync(
 
     task = sync_bandcamp_task.delay()
     return {"status": "started", "task_id": task.id}
+
+
+class BrowseResponse(BaseModel):
+    """Directory browser response."""
+    current_path: str
+    directories: List[str]
+
+
+@router.get("/browse", response_model=BrowseResponse)
+async def browse_directory(
+    path: str = Query("/", description="Path to browse"),
+    admin: User = Depends(require_admin)
+):
+    """Browse filesystem directories for path selection.
+
+    Admin only. Returns list of subdirectories at the given path.
+    """
+    # Normalize and validate path
+    try:
+        target = Path(path).resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid path")
+
+    # Security: prevent access outside allowed roots
+    allowed_roots = ["/", "/music", "/data", "/mnt", "/Volumes", "/home"]
+    if not any(str(target).startswith(root) for root in allowed_roots):
+        raise HTTPException(status_code=403, detail="Access denied to this path")
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Path does not exist")
+
+    if not target.is_dir():
+        raise HTTPException(status_code=400, detail="Path is not a directory")
+
+    # List subdirectories only (no files)
+    try:
+        directories = sorted([
+            entry.name for entry in target.iterdir()
+            if entry.is_dir() and not entry.name.startswith('.')
+        ])
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    return BrowseResponse(
+        current_path=str(target),
+        directories=directories
+    )
