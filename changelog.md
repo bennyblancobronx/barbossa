@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.28] - 2026-01-25
+
+### Added - Qobuz Settings with Verification
+- Qobuz email/password fields in Settings > Sources
+- Individual Save buttons for each source (Qobuz, Lidarr, Plex)
+- Visual verification of saved credentials:
+  - Masked email display for Qobuz (e.g., "jo***@email.com")
+  - Server URL display for Lidarr and Plex
+  - "Connected" / "Not Configured" / "Disconnected" badges
+- Clear labeling: "Update Email" vs "Email" based on saved state
+
+### Files Modified
+- frontend/src/pages/Settings.jsx - SourceSettings with saved credential display
+- frontend/src/styles/design-system.css - .saved-credential styling
+- backend/app/api/settings.py - Return masked qobuz_email in response
+
+---
+
 ## [0.1.27] - 2026-01-25
 
 ### Changed - Host Path Display

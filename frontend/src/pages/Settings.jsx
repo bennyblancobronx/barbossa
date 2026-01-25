@@ -407,15 +407,109 @@ function AddUserModal({ onClose }) {
 }
 
 function SourceSettings({ settings }) {
+  const [qobuzEmail, setQobuzEmail] = useState('')
+  const [qobuzPassword, setQobuzPassword] = useState('')
+  const [qobuzQuality, setQobuzQuality] = useState(settings?.qobuz_quality || 4)
+  const [lidarrUrl, setLidarrUrl] = useState(settings?.lidarr_url || '')
+  const [lidarrKey, setLidarrKey] = useState('')
+  const [plexUrl, setPlexUrl] = useState(settings?.plex_url || '')
+  const [plexToken, setPlexToken] = useState('')
+  const { addNotification } = useNotificationStore()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (settings?.qobuz_quality !== undefined) setQobuzQuality(settings.qobuz_quality)
+    if (settings?.lidarr_url) setLidarrUrl(settings.lidarr_url)
+    if (settings?.plex_url) setPlexUrl(settings.plex_url)
+    // Clear inputs when settings change (credentials saved)
+    setQobuzEmail('')
+    setQobuzPassword('')
+    setLidarrKey('')
+    setPlexToken('')
+  }, [settings])
+
+  const updateSettings = useMutation(
+    (data) => api.updateSettings(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('settings')
+        addNotification({ type: 'success', message: 'Settings saved' })
+      },
+      onError: (error) => {
+        addNotification({ type: 'error', message: error.response?.data?.detail || 'Failed to save' })
+      }
+    }
+  )
+
+  const saveQobuz = () => {
+    const data = { qobuz_quality: parseInt(qobuzQuality) }
+    if (qobuzEmail) data.qobuz_email = qobuzEmail
+    if (qobuzPassword) data.qobuz_password = qobuzPassword
+    updateSettings.mutate(data)
+  }
+
+  const saveLidarr = () => {
+    const data = {}
+    if (lidarrUrl) data.lidarr_url = lidarrUrl
+    if (lidarrKey) data.lidarr_api_key = lidarrKey
+    updateSettings.mutate(data)
+  }
+
+  const savePlex = () => {
+    const data = {}
+    if (plexUrl) data.plex_url = plexUrl
+    if (plexToken) data.plex_token = plexToken
+    updateSettings.mutate(data)
+  }
+
   return (
     <section className="settings-section">
       <h2 className="text-lg">Download Sources</h2>
 
       <div className="source-config">
-        <h3 className="text-base">Qobuz</h3>
+        <div className="source-header">
+          <h3 className="text-base">Qobuz</h3>
+          {settings?.qobuz_enabled ? (
+            <span className="badge badge-success">Connected</span>
+          ) : (
+            <span className="badge">Not Configured</span>
+          )}
+        </div>
+
+        {settings?.qobuz_enabled && settings?.qobuz_email && (
+          <div className="field">
+            <label className="label">Current Account</label>
+            <div className="saved-credential">{settings.qobuz_email}</div>
+          </div>
+        )}
+
+        <div className="field">
+          <label className="label">{settings?.qobuz_enabled ? 'Update Email' : 'Email'}</label>
+          <input
+            type="email"
+            className="input"
+            placeholder={settings?.qobuz_enabled ? 'Leave blank to keep current' : 'your@email.com'}
+            value={qobuzEmail}
+            onChange={e => setQobuzEmail(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label className="label">{settings?.qobuz_enabled ? 'Update Password' : 'Password'}</label>
+          <input
+            type="password"
+            className="input"
+            placeholder={settings?.qobuz_enabled ? 'Leave blank to keep current' : 'Enter password'}
+            value={qobuzPassword}
+            onChange={e => setQobuzPassword(e.target.value)}
+          />
+        </div>
         <div className="field">
           <label className="label">Quality</label>
-          <select className="input select" defaultValue={settings?.qobuz_quality || 4}>
+          <select
+            className="input select"
+            value={qobuzQuality}
+            onChange={e => setQobuzQuality(e.target.value)}
+          >
             <option value="0">MP3 128kbps</option>
             <option value="1">MP3 320kbps</option>
             <option value="2">FLAC 16/44.1</option>
@@ -423,50 +517,101 @@ function SourceSettings({ settings }) {
             <option value="4">FLAC 24/192 (Max)</option>
           </select>
         </div>
+        <button
+          className="btn btn-primary"
+          onClick={saveQobuz}
+          disabled={updateSettings.isLoading}
+        >
+          {settings?.qobuz_enabled ? 'Update Qobuz Settings' : 'Save Qobuz Settings'}
+        </button>
       </div>
 
       <div className="source-config">
-        <h3 className="text-base">Lidarr</h3>
+        <div className="source-header">
+          <h3 className="text-base">Lidarr</h3>
+          {settings?.lidarr_connected && <span className="badge badge-success">Connected</span>}
+          {settings?.lidarr_enabled && !settings?.lidarr_connected && <span className="badge badge-error">Disconnected</span>}
+          {!settings?.lidarr_enabled && <span className="badge">Not Configured</span>}
+        </div>
+
+        {settings?.lidarr_enabled && settings?.lidarr_url && (
+          <div className="field">
+            <label className="label">Current Server</label>
+            <div className="saved-credential">{settings.lidarr_url}</div>
+          </div>
+        )}
+
         <div className="field">
-          <label className="label">URL</label>
+          <label className="label">{settings?.lidarr_enabled ? 'Update URL' : 'URL'}</label>
           <input
             type="url"
             className="input"
-            placeholder="http://lidarr:8686"
-            defaultValue={settings?.lidarr_url || ''}
+            placeholder={settings?.lidarr_enabled ? 'Leave blank to keep current' : 'http://lidarr:8686'}
+            value={lidarrUrl}
+            onChange={e => setLidarrUrl(e.target.value)}
           />
         </div>
         <div className="field">
-          <label className="label">API Key</label>
+          <label className="label">{settings?.lidarr_enabled ? 'Update API Key' : 'API Key'}</label>
           <input
             type="password"
             className="input"
-            placeholder="Enter API key"
-            defaultValue={settings?.lidarr_key ? '********' : ''}
+            placeholder={settings?.lidarr_enabled ? 'Leave blank to keep current' : 'Enter API key'}
+            value={lidarrKey}
+            onChange={e => setLidarrKey(e.target.value)}
           />
         </div>
+        <button
+          className="btn btn-primary"
+          onClick={saveLidarr}
+          disabled={updateSettings.isLoading}
+        >
+          {settings?.lidarr_enabled ? 'Update Lidarr Settings' : 'Save Lidarr Settings'}
+        </button>
       </div>
 
       <div className="source-config">
-        <h3 className="text-base">Plex</h3>
+        <div className="source-header">
+          <h3 className="text-base">Plex</h3>
+          {settings?.plex_connected && <span className="badge badge-success">Connected</span>}
+          {settings?.plex_url && !settings?.plex_connected && <span className="badge badge-error">Disconnected</span>}
+          {!settings?.plex_url && <span className="badge">Not Configured</span>}
+        </div>
+
+        {settings?.plex_url && (
+          <div className="field">
+            <label className="label">Current Server</label>
+            <div className="saved-credential">{settings.plex_url}</div>
+          </div>
+        )}
+
         <div className="field">
-          <label className="label">URL</label>
+          <label className="label">{settings?.plex_url ? 'Update URL' : 'URL'}</label>
           <input
             type="url"
             className="input"
-            placeholder="http://plex:32400"
-            defaultValue={settings?.plex_url || ''}
+            placeholder={settings?.plex_url ? 'Leave blank to keep current' : 'http://plex:32400'}
+            value={plexUrl}
+            onChange={e => setPlexUrl(e.target.value)}
           />
         </div>
         <div className="field">
-          <label className="label">Token</label>
+          <label className="label">{settings?.plex_url ? 'Update Token' : 'Token'}</label>
           <input
             type="password"
             className="input"
-            placeholder="Enter token"
-            defaultValue={settings?.plex_token ? '********' : ''}
+            placeholder={settings?.plex_url ? 'Leave blank to keep current' : 'Enter token'}
+            value={plexToken}
+            onChange={e => setPlexToken(e.target.value)}
           />
         </div>
+        <button
+          className="btn btn-primary"
+          onClick={savePlex}
+          disabled={updateSettings.isLoading}
+        >
+          {settings?.plex_url ? 'Update Plex Settings' : 'Save Plex Settings'}
+        </button>
       </div>
     </section>
   )

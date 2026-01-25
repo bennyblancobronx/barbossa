@@ -33,6 +33,7 @@ class SettingsResponse(BaseModel):
 
     # Qobuz
     qobuz_enabled: bool
+    qobuz_email: str  # Masked email for display
     qobuz_quality: int
 
     # Lidarr
@@ -57,6 +58,8 @@ class SettingsUpdate(BaseModel):
     """Settings update request."""
     music_library: Optional[str] = None
     music_users: Optional[str] = None
+    qobuz_email: Optional[str] = None
+    qobuz_password: Optional[str] = None
     qobuz_quality: Optional[int] = None
     lidarr_url: Optional[str] = None
     lidarr_api_key: Optional[str] = None
@@ -89,6 +92,18 @@ async def get_settings(
             except Exception:
                 plex_connected = False
 
+    # Mask email for display (show first 2 chars + domain)
+    qobuz_email_masked = ""
+    if settings.qobuz_email:
+        parts = settings.qobuz_email.split("@")
+        if len(parts) == 2:
+            local = parts[0]
+            domain = parts[1]
+            masked_local = local[:2] + "*" * max(0, len(local) - 2)
+            qobuz_email_masked = f"{masked_local}@{domain}"
+        else:
+            qobuz_email_masked = settings.qobuz_email[:2] + "***"
+
     return SettingsResponse(
         music_path_host=settings.music_path_host,
         music_library=settings.music_library,
@@ -97,6 +112,7 @@ async def get_settings(
         music_import=settings.music_import,
         music_export=settings.music_export,
         qobuz_enabled=bool(settings.qobuz_email and settings.qobuz_password),
+        qobuz_email=qobuz_email_masked,
         qobuz_quality=settings.qobuz_quality,
         lidarr_enabled=bool(settings.lidarr_url and settings.lidarr_api_key),
         lidarr_url=settings.lidarr_url or "",
@@ -137,6 +153,12 @@ async def update_settings(
         if not users_path.is_dir():
             raise HTTPException(status_code=400, detail="Users library path is not a directory")
         os.environ["MUSIC_USERS"] = str(users_path)
+
+    if data.qobuz_email is not None:
+        os.environ["QOBUZ_EMAIL"] = data.qobuz_email
+
+    if data.qobuz_password is not None:
+        os.environ["QOBUZ_PASSWORD"] = data.qobuz_password
 
     if data.qobuz_quality is not None:
         os.environ["QOBUZ_QUALITY"] = str(data.qobuz_quality)
