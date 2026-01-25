@@ -52,6 +52,7 @@ class SettingsResponse(BaseModel):
 class SettingsUpdate(BaseModel):
     """Settings update request."""
     music_library: Optional[str] = None
+    music_users: Optional[str] = None
     qobuz_quality: Optional[int] = None
     lidarr_url: Optional[str] = None
     lidarr_api_key: Optional[str] = None
@@ -118,10 +119,19 @@ async def update_settings(
         # Validate path exists and is a directory
         lib_path = Path(data.music_library)
         if not lib_path.exists():
-            raise HTTPException(status_code=400, detail="Path does not exist")
+            raise HTTPException(status_code=400, detail="Music library path does not exist")
         if not lib_path.is_dir():
-            raise HTTPException(status_code=400, detail="Path is not a directory")
+            raise HTTPException(status_code=400, detail="Music library path is not a directory")
         os.environ["MUSIC_LIBRARY"] = str(lib_path)
+
+    if data.music_users is not None:
+        # Validate path exists and is a directory
+        users_path = Path(data.music_users)
+        if not users_path.exists():
+            raise HTTPException(status_code=400, detail="Users library path does not exist")
+        if not users_path.is_dir():
+            raise HTTPException(status_code=400, detail="Users library path is not a directory")
+        os.environ["MUSIC_USERS"] = str(users_path)
 
     if data.qobuz_quality is not None:
         os.environ["QOBUZ_QUALITY"] = str(data.qobuz_quality)

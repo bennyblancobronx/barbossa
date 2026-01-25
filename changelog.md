@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.26] - 2026-01-25
+
+### Added - Dual Library Path Settings
+- Music Library Path setting (master library location)
+- User Libraries Path setting (per-user symlink location)
+- Both paths have Browse button and independent Save
+
+### Files Modified
+- frontend/src/pages/Settings.jsx - Two path settings with shared browser modal
+- backend/app/api/settings.py - Added music_users to SettingsUpdate schema
+
+---
+
 ## [0.1.25] - 2026-01-25
 
 ### Fixed - Settings & Login UI

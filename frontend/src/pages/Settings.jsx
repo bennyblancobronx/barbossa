@@ -49,8 +49,9 @@ export default function Settings() {
 }
 
 function GeneralSettings({ settings }) {
-  const [musicPath, setMusicPath] = useState(settings?.music_library || '/music/library')
-  const [showBrowser, setShowBrowser] = useState(false)
+  const [musicPath, setMusicPath] = useState(settings?.music_library || '')
+  const [usersPath, setUsersPath] = useState(settings?.music_users || '')
+  const [browserTarget, setBrowserTarget] = useState(null)
   const [browserPath, setBrowserPath] = useState('/')
   const [directories, setDirectories] = useState([])
   const [loadingDirs, setLoadingDirs] = useState(false)
@@ -58,17 +59,17 @@ function GeneralSettings({ settings }) {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    if (settings?.music_library) {
-      setMusicPath(settings.music_library)
-    }
-  }, [settings?.music_library])
+    if (settings?.music_library) setMusicPath(settings.music_library)
+    if (settings?.music_users) setUsersPath(settings.music_users)
+  }, [settings?.music_library, settings?.music_users])
 
-  const updatePath = useMutation(
-    (path) => api.updateSettings({ music_library: path }),
+  const updateSettings = useMutation(
+    (data) => api.updateSettings(data),
     {
-      onSuccess: () => {
+      onSuccess: (_, variables) => {
         queryClient.invalidateQueries('settings')
-        addNotification({ type: 'success', message: 'Library path updated' })
+        const label = variables.music_library ? 'Music library' : 'User library'
+        addNotification({ type: 'success', message: `${label} path updated` })
       },
       onError: (error) => {
         addNotification({ type: 'error', message: error.response?.data?.detail || 'Failed to update path' })
@@ -89,9 +90,9 @@ function GeneralSettings({ settings }) {
     }
   }
 
-  const openBrowser = () => {
-    setShowBrowser(true)
-    loadDirectories(musicPath || '/')
+  const openBrowser = (target, currentPath) => {
+    setBrowserTarget(target)
+    loadDirectories(currentPath || '/')
   }
 
   const selectDirectory = (dir) => {
@@ -105,12 +106,16 @@ function GeneralSettings({ settings }) {
   }
 
   const confirmSelection = () => {
-    setMusicPath(browserPath)
-    setShowBrowser(false)
+    if (browserTarget === 'music') {
+      setMusicPath(browserPath)
+    } else if (browserTarget === 'users') {
+      setUsersPath(browserPath)
+    }
+    setBrowserTarget(null)
   }
 
-  const handleSave = () => {
-    updatePath.mutate(musicPath)
+  const closeBrowser = () => {
+    setBrowserTarget(null)
   }
 
   return (
@@ -125,25 +130,54 @@ function GeneralSettings({ settings }) {
             className="input"
             value={musicPath}
             onChange={e => setMusicPath(e.target.value)}
-            placeholder="/path/to/music/library"
+            placeholder="/music/library/music/artists"
           />
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={openBrowser}
+            onClick={() => openBrowser('music', musicPath)}
           >
             Browse
           </button>
           <button
             type="button"
             className="btn btn-primary"
-            onClick={handleSave}
-            disabled={updatePath.isLoading || musicPath === settings?.music_library}
+            onClick={() => updateSettings.mutate({ music_library: musicPath })}
+            disabled={updateSettings.isLoading || musicPath === settings?.music_library}
           >
             Save
           </button>
         </div>
-        <p className="field-hint">Location of the master music library</p>
+        <p className="field-hint">Master music library location (all artists/albums)</p>
+      </div>
+
+      <div className="field">
+        <label className="label">User Libraries Path</label>
+        <div className="path-input-group">
+          <input
+            type="text"
+            className="input"
+            value={usersPath}
+            onChange={e => setUsersPath(e.target.value)}
+            placeholder="/music/library/music/users"
+          />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => openBrowser('users', usersPath)}
+          >
+            Browse
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => updateSettings.mutate({ music_users: usersPath })}
+            disabled={updateSettings.isLoading || usersPath === settings?.music_users}
+          >
+            Save
+          </button>
+        </div>
+        <p className="field-hint">Per-user library symlinks location</p>
       </div>
 
       <div className="field">
@@ -164,12 +198,14 @@ function GeneralSettings({ settings }) {
         </div>
       </div>
 
-      {showBrowser && (
-        <div className="modal-backdrop" onClick={() => setShowBrowser(false)}>
+      {browserTarget && (
+        <div className="modal-backdrop" onClick={closeBrowser}>
           <div className="modal modal-md" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Select Directory</h3>
-              <button className="modal-close" onClick={() => setShowBrowser(false)}>
+              <h3 className="modal-title">
+                Select {browserTarget === 'music' ? 'Music Library' : 'User Libraries'} Directory
+              </h3>
+              <button className="modal-close" onClick={closeBrowser}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
@@ -189,9 +225,9 @@ function GeneralSettings({ settings }) {
                   </button>
                 )}
                 {loadingDirs ? (
-                  <p className="text-muted">Loading...</p>
+                  <p className="text-muted browser-loading">Loading...</p>
                 ) : directories.length === 0 ? (
-                  <p className="text-muted">No subdirectories</p>
+                  <p className="text-muted browser-empty">No subdirectories</p>
                 ) : (
                   directories.map(dir => (
                     <button key={dir} className="browser-item" onClick={() => selectDirectory(dir)}>
@@ -205,7 +241,7 @@ function GeneralSettings({ settings }) {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-ghost" onClick={() => setShowBrowser(false)}>
+              <button className="btn btn-ghost" onClick={closeBrowser}>
                 Cancel
               </button>
               <button className="btn btn-primary" onClick={confirmSelection}>
