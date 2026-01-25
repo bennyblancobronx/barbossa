@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.38] - 2026-01-25
+
+### Fixed - Qobuz Search Not Working
+Three bugs fixed:
+
+1. **Wrong CLI syntax** - was using invalid `--type` and `--limit` flags
+   - Fixed to: `rip search qobuz <type> <query> -n <limit> -o <file>`
+   - Search now writes results to temp file and parses output properly
+
+2. **Credentials not synced** - Barbossa settings were not being used by streamrip
+   - Added `_sync_credentials()` method to StreamripClient
+   - Automatically syncs Qobuz email/password from Barbossa settings to streamrip config
+   - Password is MD5 hashed as required by streamrip
+   - Credentials synced before each search/download operation
+
+3. **Settings not persisting** - GUI settings only saved to memory, lost on restart
+   - Added `_update_env_file()` function to persist settings to .env
+   - All settings (Qobuz, Lidarr, Plex, paths) now persist across restarts
+
+4. **JSON parser updated** - streamrip returns different JSON format than expected
+   - Format: `[{"source": "qobuz", "id": "xxx", "desc": "Album by Artist"}]`
+   - Parser now extracts artist/title from "desc" field
+
+### Files Modified
+- backend/app/integrations/streamrip.py - Fixed CLI syntax, credential sync, JSON parsing
+- backend/app/api/settings.py - Added .env file persistence
+
+---
+
 ## [0.1.37] - 2026-01-25
 
 ### Updated - Documentation for Search Redesign

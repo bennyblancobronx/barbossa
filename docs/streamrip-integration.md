@@ -188,8 +188,11 @@ If full album -> do NOT auto-add (user must heart)
 ## CLI Examples for Barbossa Backend
 
 ```bash
-# Search for album
+# Interactive search (opens menu)
 rip search qobuz album "dark side of the moon"
+
+# Scripted search (outputs to file for parsing)
+rip search qobuz album "dark side of the moon" -n 20 -o /tmp/results.txt
 
 # Download by URL
 rip --quality 4 url "https://www.qobuz.com/us-en/album/..."

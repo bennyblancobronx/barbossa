@@ -130,6 +130,42 @@ async def get_current_settings(
     )
 
 
+def _update_env_file(updates: dict) -> None:
+    """Persist settings to .env file.
+
+    Args:
+        updates: Dict of ENV_VAR_NAME -> value to update
+    """
+    env_path = Path(__file__).parent.parent.parent / ".env"
+
+    # Read existing .env content
+    if env_path.exists():
+        with open(env_path, 'r') as f:
+            lines = f.readlines()
+    else:
+        lines = []
+
+    # Update or add each setting
+    for key, value in updates.items():
+        pattern = f"^{key}="
+        new_line = f"{key}={value}\n"
+        found = False
+
+        for i, line in enumerate(lines):
+            if line.startswith(f"{key}="):
+                lines[i] = new_line
+                found = True
+                break
+
+        if not found:
+            # Add new line (with comment section header if needed)
+            lines.append(new_line)
+
+    # Write back
+    with open(env_path, 'w') as f:
+        f.writelines(lines)
+
+
 @router.put("")
 async def update_settings(
     data: SettingsUpdate,
@@ -137,9 +173,10 @@ async def update_settings(
 ):
     """Update application settings.
 
-    Note: This updates environment variables for the current process.
-    For persistent changes, update .env file.
+    Updates both environment variables (immediate) and .env file (persistent).
     """
+    env_updates = {}
+
     if data.music_library is not None:
         # Validate path exists and is a directory
         lib_path = Path(data.music_library)
@@ -148,6 +185,7 @@ async def update_settings(
         if not lib_path.is_dir():
             raise HTTPException(status_code=400, detail="Music library path is not a directory")
         os.environ["MUSIC_LIBRARY"] = str(lib_path)
+        env_updates["MUSIC_LIBRARY"] = str(lib_path)
 
     if data.music_users is not None:
         # Validate path exists and is a directory
@@ -157,30 +195,48 @@ async def update_settings(
         if not users_path.is_dir():
             raise HTTPException(status_code=400, detail="Users library path is not a directory")
         os.environ["MUSIC_USERS"] = str(users_path)
+        env_updates["MUSIC_USERS"] = str(users_path)
 
     if data.qobuz_email is not None:
         os.environ["QOBUZ_EMAIL"] = data.qobuz_email
+        env_updates["QOBUZ_EMAIL"] = data.qobuz_email
 
     if data.qobuz_password is not None:
         os.environ["QOBUZ_PASSWORD"] = data.qobuz_password
+        env_updates["QOBUZ_PASSWORD"] = data.qobuz_password
 
     if data.qobuz_quality is not None:
         os.environ["QOBUZ_QUALITY"] = str(data.qobuz_quality)
+        env_updates["QOBUZ_QUALITY"] = str(data.qobuz_quality)
 
     if data.lidarr_url is not None:
         os.environ["LIDARR_URL"] = data.lidarr_url
+        env_updates["LIDARR_URL"] = data.lidarr_url
 
     if data.lidarr_api_key is not None:
         os.environ["LIDARR_API_KEY"] = data.lidarr_api_key
+        env_updates["LIDARR_API_KEY"] = data.lidarr_api_key
 
     if data.plex_url is not None:
         os.environ["PLEX_URL"] = data.plex_url
+        env_updates["PLEX_URL"] = data.plex_url
 
     if data.plex_token is not None:
         os.environ["PLEX_TOKEN"] = data.plex_token
+        env_updates["PLEX_TOKEN"] = data.plex_token
 
     if data.plex_auto_scan is not None:
         os.environ["PLEX_AUTO_SCAN"] = str(data.plex_auto_scan).lower()
+        env_updates["PLEX_AUTO_SCAN"] = str(data.plex_auto_scan).lower()
+
+    # Persist to .env file
+    if env_updates:
+        try:
+            _update_env_file(env_updates)
+        except Exception as e:
+            # Log but don't fail - in-memory update still worked
+            import logging
+            logging.warning(f"Failed to persist settings to .env: {e}")
 
     # Clear settings cache to reload fresh values on next request
     get_settings.cache_clear()
