@@ -107,6 +107,14 @@ class StreamripClient:
             flags=re.MULTILINE | re.DOTALL
         )
 
+        # Update download folder
+        config_content = re.sub(
+            r'^folder\s*=\s*".*?"',
+            f'folder = "{self.download_path}"',
+            config_content,
+            flags=re.MULTILINE
+        )
+
         # Write updated config
         with open(config_path, 'w') as f:
             f.write(config_content)
@@ -191,10 +199,11 @@ class StreamripClient:
         if not 0 <= quality <= 4:
             quality = 4
 
+        # Note: rip url doesn't support --quality or --output flags
+        # Quality is set in config.toml, and output path is set in config.toml downloads.folder
+        # We sync config before downloading, so quality should already be set
         cmd = [
             "rip", "url",
-            "--quality", str(quality),
-            "--output", str(self.download_path),
             url
         ]
 
@@ -253,10 +262,10 @@ class StreamripClient:
         # Sync credentials before download
         self._ensure_credentials()
 
+        # Note: download by ID uses different syntax
+        # rip <media_type> qobuz <id>
         cmd = [
             "rip", item_type,
-            "--quality", str(quality),
-            "--output", str(self.download_path),
             "qobuz", item_id
         ]
 
