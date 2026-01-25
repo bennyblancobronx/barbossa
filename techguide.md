@@ -927,25 +927,33 @@ class LidarrService:
 - Navigate to `/search?q=X&type=Y` on submit
 - Escape clears input
 - Theme toggle in footer
+- Navigation order: My Library, Master Library, Downloads, Settings
 
-**Header.jsx** - Simplified page header
-- Shows current page title only
-- Search moved to Sidebar
+**Layout.jsx** - Page wrapper
+- Sidebar + main content area + Player + ToastContainer
+- No separate header component (page titles in content area)
 
 ### Search Page (Search.jsx)
 
-Unified search results page with 6 UI states:
+**Auto-Cascade Search Flow:**
+1. User searches -> Local search runs automatically
+2. If local empty -> Qobuz search triggers automatically (no click needed)
+3. If both empty -> Fallback modal with Lidarr/YouTube/URL options
+
+**UI States:**
 
 1. **No Query** - "Enter a search term in the sidebar"
-2. **Loading** - Spinner with "Searching library..."
-3. **Local Results Found** - AlbumGrid/ArtistList/TrackList display
-4. **No Local Results** - External options card:
-   - Search Qobuz (24/192 max)
-   - Request via Lidarr (automated)
-   - Search YouTube (lossy warning)
-   - Paste URL (redirect to Downloads)
-5. **External Results** - Qobuz results with Download buttons
-6. **YouTube Warning** - Lossy source confirmation
+2. **Loading Local** - Spinner with "Searching library..."
+3. **Local Results Found** - AlbumGrid/ArtistList/TrackList + "Search more" button at bottom
+4. **Loading Qobuz** - Progress: "No results in library" (crossed out) + "Searching Qobuz..."
+5. **Qobuz Results** - Results grid + "Try other sources" button
+6. **No Results Anywhere** - Empty state with "Try other sources" button
+
+**"Search more" Modal (opens from any results page):**
+- Search Qobuz (shown when user has local results - quality upgrade path)
+- Request via Lidarr (automated monitoring)
+- Search YouTube (lossy warning)
+- Paste URL (redirect to Downloads)
 
 ### Preview Player (persists across pages)
 

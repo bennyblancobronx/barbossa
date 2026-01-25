@@ -75,13 +75,13 @@ export default function Sidebar() {
         <NavLink to="/" end className={({ isActive }) =>
           `nav-link ${isActive ? 'is-active' : ''}`
         }>
-          Master Library
+          My Library
         </NavLink>
 
-        <NavLink to="/my-library" className={({ isActive }) =>
+        <NavLink to="/master-library" className={({ isActive }) =>
           `nav-link ${isActive ? 'is-active' : ''}`
         }>
-          My Library
+          Master Library
         </NavLink>
 
         <NavLink to="/downloads" className={({ isActive }) =>

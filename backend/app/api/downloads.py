@@ -162,13 +162,14 @@ async def get_download_queue(
 ):
     """Get active download queue.
 
-    Returns pending and in-progress downloads.
+    Returns pending, in-progress, and pending_review downloads.
     """
     query = db.query(Download).filter(
         Download.status.in_([
             DownloadStatus.PENDING.value,
             DownloadStatus.DOWNLOADING.value,
-            DownloadStatus.IMPORTING.value
+            DownloadStatus.IMPORTING.value,
+            DownloadStatus.PENDING_REVIEW.value
         ]),
         Download.user_id == user.id
     )

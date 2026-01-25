@@ -32,9 +32,10 @@ export default function App() {
           <Layout />
         </PrivateRoute>
       }>
-        <Route index element={<Library />} />
+        <Route index element={<UserLibrary />} />
         <Route path="search" element={<Search />} />
         <Route path="my-library" element={<UserLibrary />} />
+        <Route path="master-library" element={<Library />} />
         <Route path="downloads" element={<Downloads />} />
         <Route path="settings" element={<Settings />} />
         <Route path="qobuz/artist/:artistId" element={<QobuzArtist />} />

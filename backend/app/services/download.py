@@ -1,10 +1,13 @@
 """Download orchestration service."""
+import shutil
 from pathlib import Path
 from typing import Optional, Callable, Any
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.download import Download, DownloadStatus, DownloadSource
 from app.models.album import Album
+from app.models.pending_review import PendingReview, PendingReviewStatus
 from app.integrations.streamrip import StreamripClient, StreamripError
 from app.integrations.ytdlp import YtdlpClient, YtdlpError
 from app.integrations.beets import BeetsClient, BeetsError
@@ -15,6 +18,14 @@ from app.services.import_service import ImportService, ImportError
 class DuplicateError(Exception):
     """Album already exists with equal or better quality."""
     pass
+
+
+class NeedsReviewError(Exception):
+    """Album needs manual review due to low beets confidence."""
+    def __init__(self, review_id: int, confidence: float):
+        self.review_id = review_id
+        self.confidence = confidence
+        super().__init__(f"Needs review (confidence: {confidence:.0%})")
 
 
 class DownloadService:
@@ -99,6 +110,14 @@ class DownloadService:
 
             return album
 
+        except NeedsReviewError as e:
+            # Not a failure - album moved to review queue
+            download.status = DownloadStatus.PENDING_REVIEW.value
+            download.error_message = f"Needs review: {e.confidence:.0%} confidence"
+            download.result_review_id = e.review_id
+            self.db.commit()
+            raise
+
         except (StreamripError, BeetsError, ImportError) as e:
             download.status = DownloadStatus.FAILED.value
             download.error_message = str(e)
@@ -165,6 +184,14 @@ class DownloadService:
 
             return album
 
+        except NeedsReviewError as e:
+            # Not a failure - album moved to review queue
+            download.status = DownloadStatus.PENDING_REVIEW.value
+            download.error_message = f"Needs review: {e.confidence:.0%} confidence"
+            download.result_review_id = e.review_id
+            self.db.commit()
+            raise
+
         except (YtdlpError, BeetsError, ImportError) as e:
             download.status = DownloadStatus.FAILED.value
             download.error_message = str(e)
@@ -183,20 +210,33 @@ class DownloadService:
         source: str,
         source_url: str,
         user_id: Optional[int] = None,
-        is_lossy: bool = False
+        is_lossy: bool = False,
+        min_confidence: float = 0.85
     ) -> Album:
         """Tag and import album to library.
 
         Steps:
         1. Identify via beets
-        2. Extract quality via exiftool
-        3. Check for duplicates
-        4. Import to database
+        2. Check confidence (< min_confidence -> review queue)
+        3. Extract quality via exiftool
+        4. Check for duplicates
+        5. Import to database
         """
         # Identify
         identification = await self.beets.identify(path)
         artist = identification.get("artist") or "Unknown Artist"
         album_title = identification.get("album") or path.name
+        confidence = identification.get("confidence", 0)
+
+        # Check confidence - low confidence goes to review queue
+        if confidence < min_confidence:
+            review = await self._move_to_review(
+                path=path,
+                identification=identification,
+                source=source,
+                source_url=source_url
+            )
+            raise NeedsReviewError(review.id, confidence)
 
         # Check duplicates
         existing = self.import_service.find_duplicate(artist, album_title)
@@ -240,8 +280,74 @@ class DownloadService:
             source=source,
             source_url=source_url,
             imported_by=user_id,
-            confidence=identification.get("confidence", 1.0)
+            confidence=confidence
         )
+
+    async def _move_to_review(
+        self,
+        path: Path,
+        identification: dict,
+        source: str,
+        source_url: str
+    ) -> PendingReview:
+        """Move low-confidence album to review queue.
+
+        Args:
+            path: Path to downloaded album
+            identification: Beets identification result
+            source: Download source (qobuz, youtube, etc.)
+            source_url: Original URL
+
+        Returns:
+            Created PendingReview record
+        """
+        # Determine review path
+        review_dir = Path(settings.music_import) / "review"
+        review_dir.mkdir(parents=True, exist_ok=True)
+
+        review_path = review_dir / path.name
+        counter = 1
+        while review_path.exists():
+            review_path = review_dir / f"{path.name}_{counter}"
+            counter += 1
+
+        # Move files
+        shutil.move(str(path), str(review_path))
+
+        # Count audio files
+        audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff"}
+        track_count = sum(
+            1 for f in review_path.iterdir()
+            if f.is_file() and f.suffix.lower() in audio_extensions
+        )
+
+        # Extract quality info
+        tracks_metadata = await self.exiftool.get_album_metadata(review_path)
+        quality_info = None
+        if tracks_metadata:
+            first = tracks_metadata[0]
+            quality_info = {
+                "sample_rate": first.get("sample_rate"),
+                "bit_depth": first.get("bit_depth"),
+                "format": first.get("format")
+            }
+
+        # Create review record
+        review = PendingReview(
+            path=str(review_path),
+            suggested_artist=identification.get("artist"),
+            suggested_album=identification.get("album"),
+            beets_confidence=identification.get("confidence", 0),
+            track_count=track_count,
+            quality_info=quality_info,
+            source=source,
+            source_url=source_url,
+            status=PendingReviewStatus.PENDING
+        )
+        self.db.add(review)
+        self.db.commit()
+
+        return review
 
     def _get_average_quality(self, tracks: list[dict]) -> int:
         """Get average quality score for tracks."""

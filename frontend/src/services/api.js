@@ -88,7 +88,7 @@ export const getDownloads = () =>
   api.get('/downloads/queue')
 
 export const cancelDownload = (id) =>
-  api.delete(`/downloads/${id}`)
+  api.post(`/downloads/${id}/cancel`)
 
 // Qobuz Catalog Browsing
 export const searchQobuzCatalog = (query, type = 'album', limit = 20) =>

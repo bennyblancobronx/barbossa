@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.1.55] - 2026-01-25
+
+### Fixed - Downloads Queue
+- Queue endpoint now includes pending_review status (downloads no longer disappear after review)
+- Fixed cancel button: was calling DELETE (for deleting records) instead of POST /cancel (for cancelling active downloads)
+
+---
+
+## [0.1.54] - 2026-01-25
+
+### Added - Review Safety Net
+- Low confidence beets matches (<85%) now go to review queue instead of failing
+- Added PENDING_REVIEW status to download states
+- Downloads page shows pending_review items with "Needs manual review" indicator
+- Migration 008 adds result_review_id foreign key to downloads table
+
+---
+
+## [0.1.53] - 2026-01-25
+
+### Changed - UX Improvements
+- Default landing page changed from Master Library to My Library
+- Removed redundant app header (page title already visible in sidebar)
+- Master Library now at /master-library route
+- Sidebar nav reordered: My Library first
+
+---
+
+## [0.1.52] - 2026-01-25
+
+### Changed - Search Auto-Cascade
+- Search now auto-cascades: Local -> Qobuz (automatic) -> Fallback modal
+- Qobuz search triggers automatically when local results empty (no manual click needed)
+- "Search more" button appears at bottom of local/Qobuz results for external sources
+- Loading feedback shows search progress ("No results in library" -> "Searching Qobuz...")
+- Fallback modal includes Qobuz option when user has local results (quality upgrade path)
+- Qobuz results display alongside local results when triggered from modal (quality upgrade)
+- Removed dead state variables (showExternal, externalSource, handleSearchExternal)
+- Qobuz errors now auto-show fallback options with retry button
+
+---
+
 ## [0.1.51] - 2026-01-25
 
 ### Fixed - Database Migration Chain

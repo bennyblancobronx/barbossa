@@ -199,7 +199,8 @@ function DownloadItem({ download, onCancel }) {
     importing: 'text-primary',
     complete: 'text-success',
     failed: 'text-error',
-    cancelled: 'text-muted'
+    cancelled: 'text-muted',
+    pending_review: 'text-warning'
   }
 
   return (
@@ -227,7 +228,13 @@ function DownloadItem({ download, onCancel }) {
           </div>
         )}
 
-        {download.error_message && (
+        {download.status === 'pending_review' && (
+          <span className="download-review text-warning">
+            Needs manual review - low confidence match
+          </span>
+        )}
+
+        {download.error_message && download.status !== 'pending_review' && (
           <span className="download-error text-error">{download.error_message}</span>
         )}
       </div>

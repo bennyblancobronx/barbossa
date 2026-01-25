@@ -333,7 +333,7 @@ CREATE TABLE downloads (
     source_url TEXT,
     search_query TEXT,
     search_type VARCHAR(20),  -- artist, album, track
-    status VARCHAR(20) DEFAULT 'pending',  -- pending, downloading, processing, complete, failed
+    status VARCHAR(20) DEFAULT 'pending',  -- pending, downloading, importing, complete, failed, cancelled, pending_review
     progress INT DEFAULT 0,
     error_message TEXT,
     started_at TIMESTAMP,

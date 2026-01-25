@@ -2796,6 +2796,58 @@ body {
   color: var(--color-warning);
 }
 
+/* Search More Section */
+.search-more-section {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Search Progress Feedback */
+.search-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.search-progress-done {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  font-size: var(--text-sm);
+}
+
+.search-progress-active {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.search-exhausted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+/* Fallback Modal Extensions */
+.fallback-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.fallback-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-4);
+  text-align: left;
+}
+
 /* External Results */
 .external-results {
   display: flex;

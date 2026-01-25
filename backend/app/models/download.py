@@ -13,6 +13,7 @@ class DownloadStatus(str, enum.Enum):
     COMPLETE = "complete"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    PENDING_REVIEW = "pending_review"  # Low beets confidence, needs manual review
 
 
 class DownloadSource(str, enum.Enum):
@@ -50,6 +51,7 @@ class Download(Base):
     error_message = Column(Text)
     celery_task_id = Column(String(255))
     result_album_id = Column(Integer, ForeignKey("albums.id", ondelete="SET NULL"))
+    result_review_id = Column(Integer, ForeignKey("pending_reviews.id", ondelete="SET NULL"))
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
