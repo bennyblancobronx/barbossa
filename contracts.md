@@ -87,11 +87,16 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 - Quality indicator: 24/192, 16/44.1, or "lossy"
 - Mixed-source albums show per-track source
 
-### Search (Header Right)
-- Search local library first
-- If no local results, auto-fallback to Qobuz (streamrip)
+### Search (Sidebar)
+- Search input in sidebar (above navigation)
 - Force user to select search type: Artist / Track / Album
-- Do NOT auto-search playlists from header search
+- Do NOT include playlist option in sidebar search
+- Search local library first
+- If no local results, show external source options:
+  - [Search Qobuz] - 24/192 max
+  - [Request Lidarr] - automated
+  - [Search YouTube] - lossy warning
+  - [Paste URL] - redirect to Downloads
 
 ### Download Source Selection
 When content not in local library:

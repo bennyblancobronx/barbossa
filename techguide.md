@@ -135,6 +135,7 @@ volumes:
 | GET | `/api/albums/{id}` | Get album details |
 | GET | `/api/albums/{id}/tracks` | Get album tracks with quality info |
 | GET | `/api/search?q=&type=` | Search library (type: artist/album/track) |
+| GET | `/api/search/unified?q=&type=` | Unified search with Qobuz fallback |
 | DELETE | `/api/albums/{id}` | Delete album from disk |
 
 ### User Library
@@ -149,6 +150,44 @@ volumes:
 | GET | `/api/me/activity` | Get user's activity log |
 | POST | `/api/me/export` | Start library export |
 | GET | `/api/me/export/{id}` | Get export status |
+
+### Unified Search
+
+The `/api/search/unified` endpoint provides a single search interface with external fallback.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `q` | string | Yes | Search query (min 1 char) |
+| `type` | string | No | Search type: `artist`, `album`, `track` (default: `album`). NO `playlist` allowed. |
+| `include_external` | bool | No | Search Qobuz if local results empty (default: `false`) |
+| `limit` | int | No | Max results 1-50 (default: `20`) |
+
+**Response:**
+```json
+{
+  "query": "Beatles",
+  "type": "album",
+  "local": {
+    "count": 2,
+    "albums": [...],
+    "artists": [],
+    "tracks": []
+  },
+  "external": null
+}
+```
+
+When `include_external=true` and local count is 0, `external` contains Qobuz results:
+```json
+{
+  "external": {
+    "source": "qobuz",
+    "count": 10,
+    "items": [...],
+    "error": null
+  }
+}
+```
 
 ### Downloads
 
@@ -850,6 +889,34 @@ class LidarrService:
 ---
 
 ## Frontend Components
+
+### Layout Components
+
+**Sidebar.jsx** - Main navigation with integrated search
+- Search input at top (above navigation)
+- Type selector: Albums / Artists / Tracks (NO Playlist option)
+- Navigate to `/search?q=X&type=Y` on submit
+- Escape clears input
+- Theme toggle in footer
+
+**Header.jsx** - Simplified page header
+- Shows current page title only
+- Search moved to Sidebar
+
+### Search Page (Search.jsx)
+
+Unified search results page with 6 UI states:
+
+1. **No Query** - "Enter a search term in the sidebar"
+2. **Loading** - Spinner with "Searching library..."
+3. **Local Results Found** - AlbumGrid/ArtistList/TrackList display
+4. **No Local Results** - External options card:
+   - Search Qobuz (24/192 max)
+   - Request via Lidarr (automated)
+   - Search YouTube (lossy warning)
+   - Paste URL (redirect to Downloads)
+5. **External Results** - Qobuz results with Download buttons
+6. **YouTube Warning** - Lossy source confirmation
 
 ### Preview Player (persists across pages)
 

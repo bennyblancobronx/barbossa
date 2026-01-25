@@ -1,15 +1,74 @@
-import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
 
 export default function Sidebar() {
   const { user, logout } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Initialize from URL if on search page
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
+  const [searchType, setSearchType] = useState(searchParams.get('type') || 'album')
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}&type=${searchType}`)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setSearchQuery('')
+    }
+  }
 
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
         <h1 className="text-2xl">barbossa</h1>
+      </div>
+
+      {/* Search Section */}
+      <div className="sidebar-search">
+        <form onSubmit={handleSearch}>
+          <div className="search-bar">
+            <SearchIcon />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Search... (Enter)"
+              className="search-input"
+              aria-label="Search library"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="search-clear"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                <CloseIcon />
+              </button>
+            )}
+          </div>
+          {/* NO playlist option per contracts.md line 94 */}
+          <select
+            value={searchType}
+            onChange={e => setSearchType(e.target.value)}
+            className="search-type-select"
+            aria-label="Search type"
+          >
+            <option value="album">Albums</option>
+            <option value="artist">Artists</option>
+            <option value="track">Tracks</option>
+          </select>
+        </form>
       </div>
 
       <nav className="sidebar-nav">
@@ -51,6 +110,24 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  )
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
   )
 }
 

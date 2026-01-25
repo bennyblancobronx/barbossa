@@ -1,32 +1,25 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import SearchBar from './SearchBar'
+import { useLocation } from 'react-router-dom'
+
+const pageTitles = {
+  '/': 'Master Library',
+  '/search': 'Search',
+  '/my-library': 'My Library',
+  '/downloads': 'Downloads',
+  '/settings': 'Settings'
+}
 
 export default function Header() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const navigate = useNavigate()
-
-  const handleSearch = (query) => {
-    setSearchQuery(query)
-    if (query) {
-      navigate(`/?q=${encodeURIComponent(query)}`)
-    } else {
-      navigate('/')
-    }
-  }
+  const location = useLocation()
+  const basePath = '/' + (location.pathname.split('/')[1] || '')
+  const title = pageTitles[basePath] || 'Barbossa'
 
   return (
     <header className="app-header">
       <div className="header-left">
-        {/* Breadcrumbs or page title can go here */}
+        <h2 className="header-title">{title}</h2>
       </div>
-
       <div className="header-right">
-        <SearchBar
-          value={searchQuery}
-          onChange={handleSearch}
-          placeholder="Search library..."
-        />
+        {/* Search moved to sidebar */}
       </div>
     </header>
   )

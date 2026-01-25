@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { useSearchParams } from 'react-router-dom'
 import * as api from '../services/api'
 import { useDownloadStore } from '../stores/downloads'
 import { useNotificationStore } from '../stores/notifications'
 
 export default function Downloads() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchType, setSearchType] = useState('album')
-  const [urlInput, setUrlInput] = useState('')
+  const [searchParams] = useSearchParams()
+  const initialUrl = searchParams.get('url') || ''
+  const [urlInput, setUrlInput] = useState(initialUrl)
 
   const queryClient = useQueryClient()
   const { addNotification } = useNotificationStore()
@@ -25,29 +26,9 @@ export default function Downloads() {
     }
   )
 
-  // Search Qobuz
-  const { data: searchResults, isLoading: isSearching, refetch: doSearch } = useQuery(
-    ['qobuz-search', searchQuery, searchType],
-    () => api.searchQobuz(searchQuery, searchType).then(r => r.data.items || r.data || []),
-    { enabled: false }
-  )
-
   // Download mutations
-  const downloadQobuz = useMutation(
-    (url) => api.downloadQobuz(url, 4, searchType),
-    {
-      onSuccess: () => {
-        addNotification({ type: 'success', message: 'Download started' })
-        queryClient.invalidateQueries('downloads')
-      },
-      onError: (error) => {
-        addNotification({ type: 'error', message: error.response?.data?.detail || 'Download failed' })
-      }
-    }
-  )
-
   const downloadUrl = useMutation(
-    ({ url, confirmLossy }) => api.downloadUrl(url, confirmLossy, searchType),
+    ({ url, confirmLossy }) => api.downloadUrl(url, confirmLossy),
     {
       onSuccess: () => {
         addNotification({ type: 'success', message: 'Download started' })
@@ -75,13 +56,6 @@ export default function Downloads() {
     }
   )
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      doSearch()
-    }
-  }
-
   const handleUrlDownload = (e) => {
     e.preventDefault()
     if (urlInput.trim()) {
@@ -95,56 +69,6 @@ export default function Downloads() {
         <h1 className="text-2xl">Downloads</h1>
         <p className="text-muted">Temporary staging - imports land in master library</p>
       </header>
-
-      <section className="download-section">
-        <h2 className="text-lg">Search Qobuz</h2>
-
-        <form onSubmit={handleSearch} className="search-form">
-          <select
-            value={searchType}
-            onChange={e => setSearchType(e.target.value)}
-            className="input-select"
-          >
-            <option value="album">Album</option>
-            <option value="artist">Artist</option>
-            <option value="track">Track</option>
-            <option value="playlist">Playlist</option>
-          </select>
-
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search Qobuz..."
-            className="input-default"
-          />
-
-          <button type="submit" className="btn-primary" disabled={isSearching}>
-            {isSearching ? 'Searching...' : 'Search'}
-          </button>
-        </form>
-
-        {searchResults && searchResults.length > 0 && (
-          <div className="search-results">
-            {searchResults.map(result => (
-              <div key={result.id} className="search-result-item">
-                <div className="search-result-info">
-                  <span className="search-result-title">{result.title}</span>
-                  <span className="search-result-artist">{result.artist || result.artist_name}</span>
-                  {result.year && <span className="search-result-year">{result.year}</span>}
-                </div>
-                <button
-                  className="btn-secondary"
-                  onClick={() => downloadQobuz.mutate(result.url)}
-                  disabled={downloadQobuz.isLoading}
-                >
-                  Download
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       <section className="download-section">
         <h2 className="text-lg">Download from URL</h2>
@@ -166,6 +90,13 @@ export default function Downloads() {
       </section>
 
       <section className="download-section">
+        <h2 className="text-lg">Lidarr Request</h2>
+        <p className="text-sm text-muted">Request albums via Lidarr for automated monitoring</p>
+
+        <LidarrSearch />
+      </section>
+
+      <section className="download-section">
         <h2 className="text-lg">Download Queue</h2>
 
         {downloads.length === 0 ? (
@@ -182,6 +113,80 @@ export default function Downloads() {
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+function LidarrSearch() {
+  const [searchQuery, setSearchQuery] = useState('')
+  const { addNotification } = useNotificationStore()
+
+  const { data: searchResults, isLoading, refetch } = useQuery(
+    ['lidarr-search', searchQuery],
+    () => api.searchLidarr(searchQuery).then(r => r.data.items || r.data || []),
+    { enabled: false }
+  )
+
+  const addToLidarr = useMutation(
+    ({ mbid, name }) => api.addArtistToLidarr(mbid, name),
+    {
+      onSuccess: () => {
+        addNotification({ type: 'success', message: 'Artist added to Lidarr' })
+      },
+      onError: (error) => {
+        addNotification({ type: 'error', message: error.response?.data?.detail || 'Failed to add artist' })
+      }
+    }
+  )
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      refetch()
+    }
+  }
+
+  return (
+    <div>
+      <form onSubmit={handleSearch} className="search-form">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search artist to add..."
+          className="input-default"
+        />
+        <button type="submit" className="btn-secondary" disabled={isLoading}>
+          {isLoading ? 'Searching...' : 'Search Lidarr'}
+        </button>
+      </form>
+
+      {searchResults && searchResults.length > 0 && (
+        <div className="search-results">
+          {searchResults.map(result => (
+            <div key={result.mbid || result.id} className="search-result-item">
+              <div className="search-result-info">
+                <span className="search-result-title">{result.artistName || result.name}</span>
+                {result.overview && (
+                  <span className="search-result-meta text-sm text-muted">
+                    {result.overview.slice(0, 100)}...
+                  </span>
+                )}
+              </div>
+              <button
+                className="btn-secondary"
+                onClick={() => addToLidarr.mutate({
+                  mbid: result.foreignArtistId || result.mbid,
+                  name: result.artistName || result.name
+                })}
+                disabled={addToLidarr.isLoading}
+              >
+                Add to Lidarr
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

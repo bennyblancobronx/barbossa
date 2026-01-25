@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.api import (
     auth, library, streaming, downloads, websocket,
     admin, review, torrentleech, exports, lidarr,
-    artwork, metadata, settings
+    artwork, metadata, settings, search
 )
 
 api_router = APIRouter()
@@ -31,6 +31,9 @@ api_router.include_router(lidarr.router, tags=["lidarr"])
 
 # Exports
 api_router.include_router(exports.router, tags=["exports"])
+
+# Search
+api_router.include_router(search.router, tags=["search"])
 
 # WebSocket routes (not under /api prefix)
 ws_router = websocket.router

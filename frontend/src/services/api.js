@@ -50,6 +50,11 @@ export const getAlbum = (id) =>
 export const searchLibrary = (query, type = 'all') =>
   api.get('/search', { params: { q: query, type } })
 
+export const searchUnified = (q, type, includeExternal = false, limit = 20) =>
+  api.get('/search/unified', {
+    params: { q, type, include_external: includeExternal, limit }
+  })
+
 export const deleteAlbum = (id) =>
   api.delete(`/albums/${id}`)
 

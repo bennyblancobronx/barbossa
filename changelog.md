@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.1.37] - 2026-01-25
+
+### Updated - Documentation for Search Redesign
+- techguide.md: Added `/api/search/unified` endpoint documentation
+- techguide.md: Added Sidebar.jsx, Header.jsx, Search.jsx component docs
+- techguide.md: Added unified search parameters and response format
+- Audit complete: All search redesign code matches plan
+
+---
+
+## [0.1.36] - 2026-01-25
+
+### Added - Search Redesign Implementation
+Implemented unified search system per docs/search-redesign-guide.md
+
+**Backend:**
+- backend/app/api/search.py: Unified search endpoint with Qobuz fallback
+- backend/tests/test_search_unified.py: 12 tests for search endpoint
+- Playlist type rejected per contracts.md line 94
+
+**Frontend:**
+- frontend/src/pages/Search.jsx: Dedicated search page with 6 UI states
+- frontend/src/components/Sidebar.jsx: Search moved from header to sidebar
+- frontend/src/components/Header.jsx: Simplified, shows page title only
+- frontend/src/pages/Library.jsx: Removed search handling (browse only)
+- frontend/src/pages/Downloads.jsx: Removed Qobuz search (keep URL paste + Lidarr)
+- frontend/src/App.jsx: Added /search route
+- frontend/src/services/api.js: Added searchUnified endpoint
+- frontend/src/styles/design-system.css: Search page styles, dark mode support
+
+**Search Flow:**
+1. User searches in sidebar (type selector: Album/Artist/Track - NO Playlist)
+2. Navigates to /search?q=X&type=Y
+3. Local results displayed if found
+4. If no local results: external options card (Qobuz, Lidarr, YouTube, URL paste)
+5. Qobuz results with Download button
+6. YouTube shows lossy warning
+
+---
+
+## [0.1.35] - 2026-01-25
+
+### Added - Search Redesign Technical Guide
+- docs/search-redesign-guide.md: Implementation guide for search overhaul (audited, rev 2)
+- Addresses: Qobuz fallback, streamrip GUI gaps, sidebar search, unified search page
+- Backend: Pydantic schemas, proper imports, test file
+- Frontend: Search.jsx with 6 UI states, YouTube lossy warning
+- CSS: Dark mode, mobile responsive, spinner
+
+---
+
 ## [0.1.34] - 2026-01-25
 
 ### Added - Missing Subdirectories
