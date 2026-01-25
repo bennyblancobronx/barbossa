@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.29] - 2026-01-25
+
+### Fixed - Qobuz Settings Not Persisting
+- Qobuz credentials now properly save and persist across page refreshes
+- Status pill (Connected/Not Configured) now updates immediately after saving
+- Root cause: settings.py used stale module-level settings cache instead of fresh instance
+
+### Files Modified
+- backend/app/api/settings.py - Use get_settings() for fresh config after cache clear
+
+---
+
 ## [0.1.28] - 2026-01-25
 
 ### Added - Qobuz Settings with Verification

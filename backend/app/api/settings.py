@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.dependencies import get_current_user, require_admin
 from app.models.user import User
-from app.config import settings
+from app.config import get_settings
 from app.integrations.lidarr import LidarrClient
 from app.integrations.plex import PlexClient
 from app.integrations.bandcamp import BandcampClient
@@ -69,10 +69,13 @@ class SettingsUpdate(BaseModel):
 
 
 @router.get("", response_model=SettingsResponse)
-async def get_settings(
+async def get_current_settings(
     user: User = Depends(get_current_user)
 ):
     """Get application settings."""
+    # Get fresh settings instance (not stale module-level cache)
+    settings = get_settings()
+
     # Test connections for admin
     lidarr_connected = None
     plex_connected = None
@@ -178,8 +181,7 @@ async def update_settings(
     if data.plex_auto_scan is not None:
         os.environ["PLEX_AUTO_SCAN"] = str(data.plex_auto_scan).lower()
 
-    # Clear settings cache to reload
-    from app.config import get_settings
+    # Clear settings cache to reload fresh values on next request
     get_settings.cache_clear()
 
     return {"status": "updated"}
@@ -244,6 +246,7 @@ async def trigger_bandcamp_sync(
     """Trigger Bandcamp collection sync."""
     from app.tasks.downloads import sync_bandcamp_task
 
+    settings = get_settings()
     if not settings.bandcamp_cookies:
         raise HTTPException(status_code=400, detail="Bandcamp cookies not configured")
 
