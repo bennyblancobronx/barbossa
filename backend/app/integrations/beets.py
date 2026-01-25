@@ -53,7 +53,21 @@ class BeetsClient:
             cmd.insert(2, str(self.config_path))
 
         result = await self._run_command(cmd, allow_failure=True)
-        return self._parse_identification(result)
+        identification = self._parse_identification(result)
+
+        # If beets didn't identify, try parsing folder name
+        # Format: "Artist - Album (Year) [Format] [Quality]"
+        if not identification.get("artist") or identification.get("confidence", 0) == 0:
+            folder_info = self._parse_folder_name(path.name)
+            if folder_info.get("artist"):
+                identification["artist"] = identification.get("artist") or folder_info.get("artist")
+                identification["album"] = identification.get("album") or folder_info.get("album")
+                identification["year"] = identification.get("year") or folder_info.get("year")
+                # Give partial confidence for folder-parsed data
+                if identification["confidence"] == 0:
+                    identification["confidence"] = 0.5  # 50% - needs review
+
+        return identification
 
     async def import_album(
         self,
@@ -262,6 +276,34 @@ class BeetsClient:
             return expected
 
         raise BeetsError(f"Could not find imported album: {artist} - {album}")
+
+    def _parse_folder_name(self, name: str) -> dict:
+        """Parse folder name in streamrip format.
+
+        Format: "Artist - Album (Year) [Format] [Quality]"
+        Example: "Joni Mitchell - Blue (1971) [FLAC] [24B-192kHz]"
+        """
+        result = {"artist": None, "album": None, "year": None}
+
+        # Remove format/quality brackets from end
+        clean_name = re.sub(r'\s*\[.*?\]\s*$', '', name)
+        clean_name = re.sub(r'\s*\[.*?\]\s*$', '', clean_name)  # Remove second bracket
+
+        # Extract year if present
+        year_match = re.search(r'\((\d{4})\)\s*$', clean_name)
+        if year_match:
+            result["year"] = int(year_match.group(1))
+            clean_name = clean_name[:year_match.start()].strip()
+
+        # Split artist - album
+        if " - " in clean_name:
+            parts = clean_name.split(" - ", 1)
+            result["artist"] = parts[0].strip()
+            result["album"] = parts[1].strip()
+        else:
+            result["album"] = clean_name.strip()
+
+        return result
 
     def _extract_artist_from_path(self, path: Path) -> str:
         """Extract artist name from download path structure."""

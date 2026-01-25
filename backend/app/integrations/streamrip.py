@@ -232,12 +232,31 @@ class StreamripClient:
 
         await process.wait()
 
-        if process.returncode != 0:
-            raise StreamripError(f"Download failed with code {process.returncode}")
-
         # If we didn't catch the output path, find the newest directory
         if output_path is None:
             output_path = self._find_newest_folder()
+
+        # Validate the download - check for audio files even if return code != 0
+        # (streamrip may crash at cleanup step but download succeeded)
+        if output_path and output_path.exists():
+            audio_files = [
+                f for f in output_path.rglob("*")
+                if f.suffix.lower() in {".flac", ".mp3", ".m4a", ".ogg", ".wav"}
+            ]
+            if audio_files:
+                # Download succeeded - clean up artwork folder if present
+                artwork_dir = output_path / "__artwork"
+                if artwork_dir.exists():
+                    import shutil
+                    try:
+                        shutil.rmtree(artwork_dir)
+                    except Exception:
+                        pass  # Ignore cleanup errors
+                return output_path
+
+        # No valid output - report actual failure
+        if process.returncode != 0:
+            raise StreamripError(f"Download failed with code {process.returncode}")
 
         return output_path
 
@@ -292,11 +311,28 @@ class StreamripClient:
 
         await process.wait()
 
-        if process.returncode != 0:
-            raise StreamripError(f"Download failed with code {process.returncode}")
-
         if output_path is None:
             output_path = self._find_newest_folder()
+
+        # Validate the download - check for audio files even if return code != 0
+        if output_path and output_path.exists():
+            audio_files = [
+                f for f in output_path.rglob("*")
+                if f.suffix.lower() in {".flac", ".mp3", ".m4a", ".ogg", ".wav"}
+            ]
+            if audio_files:
+                # Download succeeded - clean up artwork folder if present
+                artwork_dir = output_path / "__artwork"
+                if artwork_dir.exists():
+                    import shutil
+                    try:
+                        shutil.rmtree(artwork_dir)
+                    except Exception:
+                        pass  # Ignore cleanup errors
+                return output_path
+
+        if process.returncode != 0:
+            raise StreamripError(f"Download failed with code {process.returncode}")
 
         return output_path
 

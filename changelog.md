@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.57] - 2026-01-25
+
+### Fixed - Download Pipeline Robustness
+- Streamrip downloads now succeed despite cleanup crashes on SMB mounts
+- Added audio file validation to detect successful downloads regardless of exit code
+- WebSocket broadcast_to_admins fixed (method didn't exist)
+- Added fallback folder name parsing when beets can't identify album
+- PendingReview model now includes source_url field
+
+### Added
+- Migration 009: source_url column for pending_review table
+
+---
+
 ## [0.1.56] - 2026-01-25
 
 ### Fixed - Streamrip Download Command

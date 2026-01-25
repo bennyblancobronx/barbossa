@@ -29,6 +29,7 @@ class PendingReview(Base):
     track_count = Column(Integer)
     quality_info = Column(JSON)  # {sample_rate, bit_depth, format}
     source = Column(String(50))  # Where files came from originally
+    source_url = Column(String(1000))  # Original download URL
     status = Column(String(20), default=PendingReviewStatus.PENDING, index=True)
     reviewed_by = Column(Integer, ForeignKey("users.id"))
     reviewed_at = Column(DateTime(timezone=True))

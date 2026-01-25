@@ -225,4 +225,5 @@ async def broadcast_review_needed(
         "confidence": confidence,
         "timestamp": datetime.utcnow().isoformat()
     }
-    await manager.broadcast_to_admins(message)
+    # TODO: Implement admin-specific broadcast. For now, broadcast to all.
+    await manager.broadcast_all(message)
