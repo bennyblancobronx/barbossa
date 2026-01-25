@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.58] - 2026-01-25
+
+### Changed - Qobuz Auto-Import
+- Qobuz downloads now auto-import without beets identification (trusted source)
+- Uses embedded metadata directly from Qobuz FLAC files
+- Skips MusicBrainz lookup - no more review queue for Qobuz downloads
+- Added missing await for async import_service methods
+- Added missing columns to tracks table (lyrics, musicbrainz_id, updated_at)
+
+---
+
 ## [0.1.57] - 2026-01-25
 
 ### Fixed - Download Pipeline Robustness
