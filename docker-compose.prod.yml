@@ -1,0 +1,264 @@
+# BARBOSSA PRODUCTION DOCKER COMPOSE
+# Version: 0.1.10
+# Run: docker-compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # BARBOSSA API SERVER (Production)
+  # ==========================================================================
+  barbossa:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD}@db:5432/barbossa
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET}
+      - MUSIC_LIBRARY=/music/library
+      - MUSIC_USERS=/music/users
+      - MUSIC_DOWNLOADS=/music/downloads
+      - MUSIC_IMPORT=/music/import
+      - MUSIC_EXPORT=/music/export
+      - QOBUZ_EMAIL=${QOBUZ_EMAIL}
+      - QOBUZ_PASSWORD=${QOBUZ_PASSWORD}
+      - LIDARR_URL=${LIDARR_URL:-}
+      - LIDARR_API_KEY=${LIDARR_API_KEY:-}
+      - PLEX_URL=${PLEX_URL:-}
+      - PLEX_TOKEN=${PLEX_TOKEN:-}
+      - PLEX_MUSIC_SECTION=${PLEX_MUSIC_SECTION:-}
+      - TORRENTLEECH_KEY=${TORRENTLEECH_KEY:-}
+      - LOG_LEVEL=warning
+      - LOG_PATH=/var/log/barbossa/app.log
+    volumes:
+      - ${MUSIC_PATH}:/music
+      - config:/config
+      - logs:/var/log/barbossa
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # CELERY WORKER (Background Jobs)
+  # ==========================================================================
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    command: celery -A app.worker worker -Q downloads,imports,exports,maintenance -l warning -c 4
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD}@db:5432/barbossa
+      - REDIS_URL=redis://redis:6379/0
+      - MUSIC_LIBRARY=/music/library
+      - MUSIC_USERS=/music/users
+      - MUSIC_DOWNLOADS=/music/downloads
+      - MUSIC_IMPORT=/music/import
+      - QOBUZ_EMAIL=${QOBUZ_EMAIL}
+      - QOBUZ_PASSWORD=${QOBUZ_PASSWORD}
+      - LIDARR_URL=${LIDARR_URL:-}
+      - LIDARR_API_KEY=${LIDARR_API_KEY:-}
+      - PLEX_URL=${PLEX_URL:-}
+      - PLEX_TOKEN=${PLEX_TOKEN:-}
+      - PLEX_MUSIC_SECTION=${PLEX_MUSIC_SECTION:-}
+      - LOG_LEVEL=warning
+    volumes:
+      - ${MUSIC_PATH}:/music
+      - config:/config
+    depends_on:
+      - barbossa
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # CELERY BEAT (Scheduled Tasks)
+  # ==========================================================================
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    command: celery -A app.worker beat -l warning
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD}@db:5432/barbossa
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - barbossa
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # WATCHER (Watch Folders)
+  # ==========================================================================
+  watcher:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    command: python -m app.watcher
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD}@db:5432/barbossa
+      - REDIS_URL=redis://redis:6379/0
+      - WATCH_PATHS=/music/downloads/lidarr,/music/import/pending
+      - MUSIC_LIBRARY=/music/library
+      - MUSIC_IMPORT=/music/import
+    volumes:
+      - ${MUSIC_PATH}:/music
+    depends_on:
+      - barbossa
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # FRONTEND (Production Build)
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    restart: always
+    depends_on:
+      - barbossa
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # NGINX (Reverse Proxy + SSL)
+  # ==========================================================================
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - static:/var/www/static:ro
+    depends_on:
+      - barbossa
+      - frontend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # POSTGRESQL DATABASE
+  # ==========================================================================
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=barbossa
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=barbossa
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U barbossa -d barbossa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # REDIS (Queue + Cache)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # BACKUP (On-Demand)
+  # ==========================================================================
+  backup:
+    image: postgres:15-alpine
+    restart: "no"
+    environment:
+      - PGPASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ${MUSIC_PATH}:/music:ro
+    entrypoint: /bin/sh
+    command: ["-c", "echo 'Backup ready. Run: docker-compose --profile backup exec backup /backups/backup.sh'"]
+    profiles:
+      - backup
+    networks:
+      - barbossa-net
+
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
+volumes:
+  postgres_data:
+    name: barbossa_postgres_data
+  redis_data:
+    name: barbossa_redis_data
+  config:
+    name: barbossa_config
+  static:
+    name: barbossa_static
+  logs:
+    name: barbossa_logs
+
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
+networks:
+  barbossa-net:
+    name: barbossa-net
+    driver: bridge

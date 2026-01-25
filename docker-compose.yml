@@ -1,0 +1,219 @@
+# BARBOSSA DOCKER COMPOSE
+# Version: 0.1.9
+# Run: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # BARBOSSA API SERVER
+  # ==========================================================================
+  barbossa:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: barbossa-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Music library (REQUIRED - adjust path)
+      - ${MUSIC_PATH:-/path/to/music}:/music
+      # Config persistence
+      - barbossa_config:/config
+      # Streamrip config
+      - barbossa_streamrip:/root/.config/streamrip
+      # Beets config
+      - barbossa_beets:/root/.config/beets
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD:-barbossa}@db:5432/barbossa
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      # JWT Secret (CHANGE IN PRODUCTION)
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      # Qobuz credentials
+      - QOBUZ_EMAIL=${QOBUZ_EMAIL}
+      - QOBUZ_PASSWORD=${QOBUZ_PASSWORD}
+      # Lidarr (optional)
+      - LIDARR_URL=${LIDARR_URL:-}
+      - LIDARR_API_KEY=${LIDARR_API_KEY:-}
+      # Plex (optional)
+      - PLEX_URL=${PLEX_URL:-}
+      - PLEX_TOKEN=${PLEX_TOKEN:-}
+      - PLEX_MUSIC_SECTION=${PLEX_MUSIC_SECTION:-}
+      # TorrentLeech (optional, admin only)
+      - TORRENTLEECH_KEY=${TORRENTLEECH_KEY:-}
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # CELERY WORKER (Background Jobs)
+  # ==========================================================================
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: barbossa-worker
+    restart: unless-stopped
+    command: celery -A app.worker worker -Q downloads,imports,exports,maintenance -c 4 --loglevel=info
+    volumes:
+      - ${MUSIC_PATH:-/path/to/music}:/music
+      - barbossa_config:/config
+      - barbossa_streamrip:/root/.config/streamrip
+      - barbossa_beets:/root/.config/beets
+    environment:
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD:-barbossa}@db:5432/barbossa
+      - REDIS_URL=redis://redis:6379/0
+      - QOBUZ_EMAIL=${QOBUZ_EMAIL}
+      - QOBUZ_PASSWORD=${QOBUZ_PASSWORD}
+      - LIDARR_URL=${LIDARR_URL:-}
+      - LIDARR_API_KEY=${LIDARR_API_KEY:-}
+      - PLEX_URL=${PLEX_URL:-}
+      - PLEX_TOKEN=${PLEX_TOKEN:-}
+      - PLEX_MUSIC_SECTION=${PLEX_MUSIC_SECTION:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      - barbossa
+      - db
+      - redis
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # CELERY BEAT (Scheduled Tasks)
+  # ==========================================================================
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: barbossa-beat
+    restart: unless-stopped
+    command: celery -A app.worker beat --loglevel=info
+    volumes:
+      - barbossa_config:/config
+    environment:
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD:-barbossa}@db:5432/barbossa
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - barbossa
+      - redis
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # WATCHER (Watch Folders)
+  # ==========================================================================
+  watcher:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: barbossa-watcher
+    restart: unless-stopped
+    command: python -m app.watcher
+    volumes:
+      - ${MUSIC_PATH:-/path/to/music}:/music
+    environment:
+      - DATABASE_URL=postgresql://barbossa:${DB_PASSWORD:-barbossa}@db:5432/barbossa
+      - REDIS_URL=redis://redis:6379/0
+      - WATCH_PATHS=/music/downloads/lidarr,/music/import/pending
+    depends_on:
+      - barbossa
+      - redis
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # FRONTEND (React)
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: barbossa-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      - API_URL=http://barbossa:8080
+    depends_on:
+      - barbossa
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # POSTGRESQL DATABASE
+  # ==========================================================================
+  db:
+    image: postgres:15-alpine
+    container_name: barbossa-db
+    restart: unless-stopped
+    volumes:
+      - barbossa_db:/var/lib/postgresql/data
+      # Init scripts
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
+    environment:
+      - POSTGRES_USER=barbossa
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-barbossa}
+      - POSTGRES_DB=barbossa
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U barbossa -d barbossa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - barbossa-net
+
+  # ==========================================================================
+  # REDIS (Queue + Cache + Pub/Sub)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: barbossa-redis
+    restart: unless-stopped
+    volumes:
+      - barbossa_redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - barbossa-net
+
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
+volumes:
+  barbossa_db:
+    name: barbossa_db
+  barbossa_redis:
+    name: barbossa_redis
+  barbossa_config:
+    name: barbossa_config
+  barbossa_streamrip:
+    name: barbossa_streamrip
+  barbossa_beets:
+    name: barbossa_beets
+
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
+networks:
+  barbossa-net:
+    name: barbossa-net
+    driver: bridge

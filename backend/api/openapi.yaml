@@ -1,0 +1,1345 @@
+openapi: 3.0.3
+info:
+  title: Barbossa API
+  description: |
+    Family music library management API.
+
+    ## Authentication
+    All endpoints except `/api/auth/login` require a valid JWT token.
+    Pass token in Authorization header: `Bearer <token>`
+
+    ## User Roles
+    - **Regular**: Can browse, heart, download, export own library
+    - **Admin**: Can manage users, delete from disk, upload to TorrentLeech
+  version: 0.1.9
+  contact:
+    name: Barbossa
+  license:
+    name: Private
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: http://barbossa:8080
+    description: Docker internal
+
+tags:
+  - name: auth
+    description: Authentication
+  - name: artists
+    description: Artist operations
+  - name: albums
+    description: Album operations
+  - name: tracks
+    description: Track operations
+  - name: library
+    description: User library (hearts)
+  - name: downloads
+    description: Download queue and search
+  - name: admin
+    description: Admin operations (admin only)
+  - name: settings
+    description: Application settings
+
+paths:
+  # ==========================================================================
+  # AUTH
+  # ==========================================================================
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Login
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Logout
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Get current user
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # ==========================================================================
+  # ARTISTS
+  # ==========================================================================
+  /api/artists:
+    get:
+      tags: [artists]
+      summary: List all artists (A-Z)
+      operationId: listArtists
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: letter
+          in: query
+          schema:
+            type: string
+            maxLength: 1
+          description: Filter by first letter
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: List of artists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtistList'
+
+  /api/artists/{id}:
+    get:
+      tags: [artists]
+      summary: Get artist details
+      operationId: getArtist
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArtistId'
+      responses:
+        '200':
+          description: Artist details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Artist'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/artists/{id}/albums:
+    get:
+      tags: [artists]
+      summary: Get artist's albums
+      operationId: getArtistAlbums
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArtistId'
+      responses:
+        '200':
+          description: List of albums
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlbumList'
+
+  # ==========================================================================
+  # ALBUMS
+  # ==========================================================================
+  /api/albums:
+    get:
+      tags: [albums]
+      summary: List albums
+      operationId: listAlbums
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: artist_id
+          in: query
+          schema:
+            type: integer
+          description: Optional artist filter
+        - name: letter
+          in: query
+          schema:
+            type: string
+            maxLength: 1
+          description: Filter by artist name initial (A-Z or #)
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: List of albums
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlbumList'
+
+  /api/albums/{id}:
+    get:
+      tags: [albums]
+      summary: Get album details
+      operationId: getAlbum
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AlbumId'
+      responses:
+        '200':
+          description: Album details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Album'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [albums, admin]
+      summary: Delete album from disk (admin only)
+      operationId: deleteAlbum
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AlbumId'
+      responses:
+        '200':
+          description: Album deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/albums/{id}/tracks:
+    get:
+      tags: [albums]
+      summary: Get album tracks
+      operationId: getAlbumTracks
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AlbumId'
+      responses:
+        '200':
+          description: List of tracks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackList'
+
+  /api/albums/{id}/artwork:
+    get:
+      tags: [albums]
+      summary: Get album artwork
+      operationId: getAlbumArtwork
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AlbumId'
+      responses:
+        '200':
+          description: Album artwork
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+    put:
+      tags: [albums]
+      summary: Update album artwork
+      operationId: updateAlbumArtwork
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AlbumId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                artwork:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Artwork updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ==========================================================================
+  # TRACKS
+  # ==========================================================================
+  /api/tracks/{id}:
+    get:
+      tags: [tracks]
+      summary: Get track details
+      operationId: getTrack
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        '200':
+          description: Track details with quality info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Track'
+
+  /api/tracks/{id}/metadata:
+    put:
+      tags: [tracks]
+      summary: Update track metadata
+      operationId: updateTrackMetadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackMetadataUpdate'
+      responses:
+        '200':
+          description: Metadata updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Track'
+
+  /api/tracks/{id}/stream:
+    get:
+      tags: [tracks]
+      summary: Stream track for preview
+      operationId: streamTrack
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        '200':
+          description: Audio stream
+          content:
+            audio/flac:
+              schema:
+                type: string
+                format: binary
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+
+  # ==========================================================================
+  # SEARCH
+  # ==========================================================================
+  /api/search:
+    get:
+      tags: [artists, albums, tracks]
+      summary: Search library
+      operationId: searchLibrary
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [artist, album, track, all]
+            default: all
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+
+  # ==========================================================================
+  # USER LIBRARY
+  # ==========================================================================
+  /api/me/library:
+    get:
+      tags: [library]
+      summary: Get user's library (hearted albums)
+      operationId: getUserLibrary
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: User's hearted albums
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLibrary'
+
+  /api/me/library/albums/{id}:
+    post:
+      tags: [library]
+      summary: Heart album (add to user library)
+      operationId: heartAlbum
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AlbumId'
+      responses:
+        '200':
+          description: Album hearted, symlinks created
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [library]
+      summary: Unheart album (remove from user library)
+      operationId: unheartAlbum
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AlbumId'
+      responses:
+        '200':
+          description: Album unhearted, symlinks removed
+
+  /api/me/library/tracks/{id}:
+    post:
+      tags: [library]
+      summary: Heart individual track
+      operationId: heartTrack
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        '200':
+          description: Track hearted
+    delete:
+      tags: [library]
+      summary: Unheart track
+      operationId: unheartTrack
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TrackId'
+      responses:
+        '200':
+          description: Track unhearted
+
+  /api/me/export:
+    post:
+      tags: [library]
+      summary: Export user library
+      operationId: exportLibrary
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          description: Export started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportStatus'
+
+  /api/me/export/{id}:
+    get:
+      tags: [library]
+      summary: Get export status
+      operationId: getExportStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Export status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportStatus'
+
+  /api/me/activity:
+    get:
+      tags: [library]
+      summary: Get current user's activity log
+      operationId: getMyActivity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Activity log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityEntry'
+
+  # ==========================================================================
+  # DOWNLOADS
+  # ==========================================================================
+  /api/downloads/search/qobuz:
+    get:
+      tags: [downloads]
+      summary: Search Qobuz
+      operationId: searchQobuz
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [artist, album, track, playlist]
+      responses:
+        '200':
+          description: Qobuz search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QobuzSearchResults'
+
+  /api/downloads/search/lidarr:
+    get:
+      tags: [downloads]
+      summary: Search Lidarr
+      operationId: searchLidarr
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lidarr search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LidarrSearchResults'
+
+  /api/downloads/qobuz:
+    post:
+      tags: [downloads]
+      summary: Download from Qobuz
+      operationId: downloadQobuz
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QobuzDownloadRequest'
+      responses:
+        '202':
+          description: Download started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Download'
+
+  /api/downloads/url:
+    post:
+      tags: [downloads]
+      summary: Download from URL (YouTube, Bandcamp, etc.)
+      operationId: downloadUrl
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UrlDownloadRequest'
+      responses:
+        '202':
+          description: Download started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Download'
+
+  /api/downloads/lidarr/request:
+    post:
+      tags: [downloads]
+      summary: Request via Lidarr
+      operationId: requestLidarr
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LidarrRequest'
+      responses:
+        '202':
+          description: Request sent to Lidarr
+
+  /api/downloads/queue:
+    get:
+      tags: [downloads]
+      summary: Get download queue
+      operationId: getDownloadQueue
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active downloads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Download'
+
+  /api/downloads/{id}:
+    delete:
+      tags: [downloads]
+      summary: Cancel download
+      operationId: cancelDownload
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Download cancelled
+
+  # ==========================================================================
+  # ADMIN
+  # ==========================================================================
+  /api/admin/users:
+    get:
+      tags: [admin]
+      summary: List users
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [admin]
+      summary: Create user
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/admin/users/{id}:
+    put:
+      tags: [admin]
+      summary: Update user
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+    delete:
+      tags: [admin]
+      summary: Delete user
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User deleted
+
+  /api/admin/rescan:
+    post:
+      tags: [admin]
+      summary: Rescan library
+      operationId: rescanLibrary
+      security:
+        - bearerAuth: []
+      responses:
+        '202':
+          description: Rescan started
+
+  /api/admin/integrity:
+    post:
+      tags: [admin]
+      summary: Verify file integrity
+      operationId: verifyIntegrity
+      security:
+        - bearerAuth: []
+      responses:
+        '202':
+          description: Integrity check started
+
+  /api/admin/health:
+    get:
+      tags: [admin]
+      summary: Library health report (admin only)
+      operationId: getLibraryHealth
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Health report
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/admin/torrentleech/check:
+    get:
+      tags: [admin]
+      summary: Check if release exists on TorrentLeech
+      operationId: checkTorrentLeech
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Release name to check
+      responses:
+        '200':
+          description: Check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: boolean
+                  query:
+                    type: string
+
+  /api/admin/torrentleech/upload/{albumId}:
+    post:
+      tags: [admin]
+      summary: Upload album to TorrentLeech
+      operationId: uploadTorrentLeech
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: albumId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Upload successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  torrent_id:
+                    type: integer
+                  message:
+                    type: string
+
+  # ==========================================================================
+  # SETTINGS
+  # ==========================================================================
+  /api/settings:
+    get:
+      tags: [settings]
+      summary: Get all settings
+      operationId: getSettings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    put:
+      tags: [settings, admin]
+      summary: Update settings (admin only)
+      operationId: updateSettings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Settings updated
+
+  # ==========================================================================
+  # HEALTH
+  # ==========================================================================
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  version:
+                    type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ArtistId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    AlbumId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    TrackId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden (admin only)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        is_admin:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        is_admin:
+          type: boolean
+          default: false
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        password:
+          type: string
+        is_admin:
+          type: boolean
+
+    Artist:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        album_count:
+          type: integer
+        artwork_path:
+          type: string
+
+    ArtistList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Artist'
+        total:
+          type: integer
+        page:
+          type: integer
+        pages:
+          type: integer
+
+    Album:
+      type: object
+      properties:
+        id:
+          type: integer
+        artist_id:
+          type: integer
+        artist_name:
+          type: string
+        title:
+          type: string
+        year:
+          type: integer
+        artwork_path:
+          type: string
+        total_tracks:
+          type: integer
+        available_tracks:
+          type: integer
+        source:
+          type: string
+        is_hearted:
+          type: boolean
+
+    AlbumList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Album'
+        total:
+          type: integer
+
+    Track:
+      type: object
+      properties:
+        id:
+          type: integer
+        album_id:
+          type: integer
+        title:
+          type: string
+        track_number:
+          type: integer
+        disc_number:
+          type: integer
+        duration:
+          type: integer
+        format:
+          type: string
+        sample_rate:
+          type: integer
+        bit_depth:
+          type: integer
+        is_lossy:
+          type: boolean
+        source:
+          type: string
+        source_quality:
+          type: string
+        is_hearted:
+          type: boolean
+
+    TrackList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Track'
+        total:
+          type: integer
+
+    TrackMetadataUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        artist:
+          type: string
+        album:
+          type: string
+        track_number:
+          type: integer
+        year:
+          type: integer
+        genre:
+          type: string
+
+    SearchResults:
+      type: object
+      properties:
+        artists:
+          type: array
+          items:
+            $ref: '#/components/schemas/Artist'
+        albums:
+          type: array
+          items:
+            $ref: '#/components/schemas/Album'
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Track'
+
+    UserLibrary:
+      type: object
+      properties:
+        albums:
+          type: array
+          items:
+            $ref: '#/components/schemas/Album'
+        total:
+          type: integer
+
+    ExportRequest:
+      type: object
+      required: [destination]
+      properties:
+        destination:
+          type: string
+        format:
+          type: string
+          enum: [flac, mp3, both]
+          default: flac
+        include_artwork:
+          type: boolean
+          default: true
+        include_playlist:
+          type: boolean
+          default: false
+
+    ExportStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, running, complete, failed]
+        progress:
+          type: integer
+        total_albums:
+          type: integer
+        exported_albums:
+          type: integer
+
+    QobuzSearchResults:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              artist:
+                type: string
+              year:
+                type: integer
+              url:
+                type: string
+              thumbnail:
+                type: string
+
+    LidarrSearchResults:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              mbid:
+                type: string
+              status:
+                type: string
+
+    QobuzDownloadRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: Qobuz album/track URL
+        search_type:
+          type: string
+          enum: [artist, album, track, playlist]
+          description: Used for auto-heart rule (track only)
+
+    UrlDownloadRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+        confirm_lossy:
+          type: boolean
+          default: false
+          description: Required for YouTube/lossy sources
+        search_type:
+          type: string
+          enum: [artist, album, track, playlist]
+          description: Used for auto-heart rule (track only)
+
+    LidarrRequest:
+      type: object
+      required: [artist_name]
+      properties:
+        artist_name:
+          type: string
+        mbid:
+          type: string
+
+    Download:
+      type: object
+      properties:
+        id:
+          type: integer
+        source:
+          type: string
+        search_type:
+          type: string
+          enum: [artist, album, track, playlist]
+        status:
+          type: string
+          enum: [pending, downloading, importing, complete, failed, cancelled]
+        progress:
+          type: integer
+        speed:
+          type: string
+        eta:
+          type: string
+        error_message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ActivityEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        action:
+          type: string
+        entity_type:
+          type: string
+        entity_id:
+          type: integer
+        details:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+  /api/admin/activity:
+    get:
+      tags: [admin]
+      summary: Get all activity logs (admin only)
+      operationId: getAllActivity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: Activity log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityEntry'

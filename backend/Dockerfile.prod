@@ -1,0 +1,58 @@
+# Barbossa Backend - Production Dockerfile
+# Multi-stage build for smaller image
+
+# ==========================================================================
+# BUILD STAGE
+# ==========================================================================
+FROM python:3.11-slim AS builder
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+# ==========================================================================
+# PRODUCTION STAGE
+# ==========================================================================
+FROM python:3.11-slim
+
+# Runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libimage-exiftool-perl \
+    curl \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# External tools (streamrip, yt-dlp, beets)
+RUN pip install --no-cache-dir streamrip yt-dlp beets[fetchart,lyrics,lastgenre]
+
+# Non-root user
+RUN useradd -m -u 1000 barbossa && \
+    mkdir -p /var/log/barbossa && \
+    chown -R barbossa:barbossa /var/log/barbossa
+
+WORKDIR /app
+
+# Install wheels from builder
+COPY --from=builder /app/wheels /wheels
+RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+
+# Copy application
+COPY --chown=barbossa:barbossa app/ ./app/
+COPY --chown=barbossa:barbossa alembic/ ./alembic/
+COPY --chown=barbossa:barbossa alembic.ini .
+
+USER barbossa
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+EXPOSE 8080
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4"]
