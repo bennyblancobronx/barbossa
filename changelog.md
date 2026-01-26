@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.105] - 2026-01-26
+
+### TL;DR
+- Login error now displays when wrong password entered
+
+### Fixed
+- **api.js**: 401 interceptor no longer redirects when already on login page, allowing error message to display
+
+---
+
 ## [0.1.104] - 2026-01-26
 
 ### TL;DR

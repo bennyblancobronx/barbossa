@@ -20,8 +20,11 @@ api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
+      // Don't redirect if already on login page (let the error show)
+      if (!window.location.pathname.includes('/login')) {
+        useAuthStore.getState().logout()
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
