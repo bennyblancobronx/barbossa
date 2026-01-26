@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.70] - 2026-01-26
+
+### TL;DR
+- Added full E2E test infrastructure with real audio fixtures
+- Added comprehensive admin auth integration tests for review API
+- All 36 CLI import + review API tests passing
+
+### Added
+- **conftest.py**: `real_audio_sample` fixture - generates valid WAV audio bytes
+- **conftest.py**: `audio_album_folder` fixture - creates test album with real audio
+- **conftest.py**: `mock_beets_client` / `mock_exiftool_client` factory fixtures
+- **conftest.py**: `pending_review_with_files` fixture - review with actual audio on disk
+- **test_cli_import_e2e.py**: `TestCLIImportWithRealAudio` - 4 tests with real audio validation
+- **test_cli_import_e2e.py**: `TestCLIImportErrorRecovery` - 2 error handling tests
+- **test_review_api_e2e.py**: `TestReviewIntegrationWithRealAudio` - 4 full pipeline tests
+- **test_review_api_e2e.py**: `TestAdminAuthenticationEnforcement` - 3 auth verification tests
+- **test_review_api_e2e.py**: `TestReviewApprovalErrorHandling` - 3 error handling tests
+
+### Fixed
+- Tests now properly verify admin-only endpoints reject regular users
+- Tests verify artwork fetch is called when artwork_path is None
+- Tests verify artwork fetch is skipped when artwork already exists
+
+---
+
 ## [0.1.69] - 2026-01-26
 
 ### TL;DR

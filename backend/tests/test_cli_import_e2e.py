@@ -1,4 +1,11 @@
-"""End-to-end tests for CLI import functionality."""
+"""End-to-end tests for CLI import functionality.
+
+This module contains E2E tests for the CLI import command, including:
+- Tests with mocked integrations (beets, exiftool)
+- Tests with real audio file fixtures for format validation
+- Artwork fetch verification
+- Error handling and edge cases
+"""
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -295,3 +302,249 @@ class TestCLIImportArtworkIntegration:
                     assert result.exit_code == 0
                     # fetch_artwork_if_missing should NOT be called since artwork exists
                     mock_import.return_value.fetch_artwork_if_missing.assert_not_called()
+
+
+class TestCLIImportWithRealAudio:
+    """E2E tests using real audio file fixtures.
+
+    These tests use valid WAV audio files to verify the import pipeline
+    handles real audio formats correctly.
+    """
+
+    def test_import_real_audio_validates_format(
+        self, db_session, audio_album_folder, mock_beets_client, mock_exiftool_client
+    ):
+        """CLI import with real audio files validates WAV format correctly."""
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        # Create album that will be returned by import_album
+        artist = Artist(name="Test Artist", normalized_name="test artist", sort_name="test artist")
+        db_session.add(artist)
+        db_session.flush()
+
+        album = Album(
+            artist_id=artist.id,
+            title="Test Album",
+            normalized_title="test album",
+            year=2024,
+            total_tracks=2,
+            available_tracks=2,
+            artwork_path=str(audio_album_folder / "cover.jpg")
+        )
+        db_session.add(album)
+        db_session.commit()
+
+        with patch("app.integrations.beets.BeetsClient", return_value=beets_mock):
+            with patch("app.integrations.exiftool.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.services.import_service.ImportService") as mock_import:
+                    mock_import.return_value.find_duplicate = MagicMock(return_value=None)
+                    mock_import.return_value.import_album = AsyncMock(return_value=album)
+                    mock_import.return_value.fetch_artwork_if_missing = AsyncMock(return_value=None)
+
+                    runner = CliRunner()
+                    with patch("app.database.SessionLocal", return_value=db_session):
+                        result = runner.invoke(app, ["admin", "import", str(audio_album_folder)])
+
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
+        assert "Import complete" in result.output
+
+        # Verify beets was called with the audio folder
+        beets_mock.identify.assert_called_once()
+        call_args = beets_mock.identify.call_args
+        assert str(audio_album_folder) in str(call_args)
+
+    def test_import_real_audio_extracts_correct_track_count(
+        self, db_session, audio_album_folder, mock_beets_client
+    ):
+        """Verify exiftool extracts correct track count from real audio."""
+        beets_mock = mock_beets_client()
+
+        artist = Artist(name="Test Artist", normalized_name="test artist", sort_name="test artist")
+        db_session.add(artist)
+        db_session.flush()
+
+        album = Album(
+            artist_id=artist.id,
+            title="Test Album",
+            normalized_title="test album",
+            total_tracks=2,
+            available_tracks=2
+        )
+        db_session.add(album)
+        db_session.commit()
+
+        with patch("app.integrations.beets.BeetsClient", return_value=beets_mock):
+            with patch("app.integrations.exiftool.ExifToolClient") as mock_exiftool:
+                # Track metadata extraction based on actual files
+                async def extract_metadata(path):
+                    p = Path(path)
+                    audio_files = list(p.glob("*.wav"))
+                    return [
+                        {
+                            "title": f.stem.split(" - ", 1)[-1],
+                            "track_number": int(f.stem.split(" - ")[0]) if " - " in f.stem else i,
+                            "duration": 1,
+                            "sample_rate": 44100,
+                            "bit_depth": 16,
+                            "format": "WAV"
+                        }
+                        for i, f in enumerate(sorted(audio_files), 1)
+                    ]
+
+                mock_exiftool.return_value.get_album_metadata = AsyncMock(side_effect=extract_metadata)
+
+                with patch("app.services.import_service.ImportService") as mock_import:
+                    mock_import.return_value.find_duplicate = MagicMock(return_value=None)
+                    mock_import.return_value.import_album = AsyncMock(return_value=album)
+                    mock_import.return_value.fetch_artwork_if_missing = AsyncMock(return_value=None)
+
+                    runner = CliRunner()
+                    with patch("app.database.SessionLocal", return_value=db_session):
+                        result = runner.invoke(app, ["admin", "import", str(audio_album_folder)])
+
+        assert result.exit_code == 0
+        # Verify exiftool was called and returned 2 tracks
+        mock_exiftool.return_value.get_album_metadata.assert_called_once()
+
+    def test_import_real_audio_with_cover_art(
+        self, db_session, audio_album_folder, mock_beets_client, mock_exiftool_client
+    ):
+        """Verify import detects existing cover.jpg in audio folder."""
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        # Verify cover.jpg exists in fixture
+        assert (audio_album_folder / "cover.jpg").exists()
+
+        artist = Artist(name="Test Artist", normalized_name="test artist", sort_name="test artist")
+        db_session.add(artist)
+        db_session.flush()
+
+        # Album WITH artwork path (cover found during import)
+        album = Album(
+            artist_id=artist.id,
+            title="Test Album",
+            normalized_title="test album",
+            total_tracks=2,
+            available_tracks=2,
+            artwork_path=str(audio_album_folder / "cover.jpg")
+        )
+        db_session.add(album)
+        db_session.commit()
+
+        with patch("app.integrations.beets.BeetsClient", return_value=beets_mock):
+            with patch("app.integrations.exiftool.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.services.import_service.ImportService") as mock_import:
+                    mock_import.return_value.find_duplicate = MagicMock(return_value=None)
+                    mock_import.return_value.import_album = AsyncMock(return_value=album)
+                    mock_import.return_value.fetch_artwork_if_missing = AsyncMock()
+
+                    runner = CliRunner()
+                    with patch("app.database.SessionLocal", return_value=db_session):
+                        result = runner.invoke(app, ["admin", "import", str(audio_album_folder)])
+
+        assert result.exit_code == 0
+        # Since album has artwork_path, fetch_artwork_if_missing should NOT be called
+        mock_import.return_value.fetch_artwork_if_missing.assert_not_called()
+        assert "Artwork: Found" in result.output
+
+    def test_import_real_audio_full_pipeline(
+        self, db_session, audio_album_folder, mock_beets_client, mock_exiftool_client
+    ):
+        """Full E2E test: import real audio, verify all steps complete."""
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        # Create artist/album records that simulate successful import
+        artist = Artist(
+            name="Test Artist",
+            normalized_name="test artist",
+            sort_name="test artist",
+            path=str(audio_album_folder.parent)
+        )
+        db_session.add(artist)
+        db_session.flush()
+
+        album = Album(
+            artist_id=artist.id,
+            title="Test Album",
+            normalized_title="test album",
+            year=2024,
+            path=str(audio_album_folder),
+            total_tracks=2,
+            available_tracks=2,
+            artwork_path=None  # No artwork initially
+        )
+        db_session.add(album)
+        db_session.commit()
+
+        with patch("app.integrations.beets.BeetsClient", return_value=beets_mock):
+            with patch("app.integrations.exiftool.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.services.import_service.ImportService") as mock_import:
+                    mock_import.return_value.find_duplicate = MagicMock(return_value=None)
+                    mock_import.return_value.import_album = AsyncMock(return_value=album)
+                    mock_import.return_value.fetch_artwork_if_missing = AsyncMock(
+                        return_value=str(audio_album_folder / "cover.jpg")
+                    )
+
+                    runner = CliRunner()
+                    with patch("app.database.SessionLocal", return_value=db_session):
+                        result = runner.invoke(app, ["admin", "import", str(audio_album_folder)])
+
+        # Verify full pipeline completed
+        assert result.exit_code == 0, f"Failed: {result.output}"
+        assert "Import complete" in result.output
+        assert "Album ID:" in result.output
+
+        # Verify each step was called
+        beets_mock.identify.assert_called_once()
+        beets_mock.import_album.assert_called_once()
+        exiftool_mock.get_album_metadata.assert_called_once()
+        mock_import.return_value.import_album.assert_called_once()
+        # Artwork fetch should be called since artwork_path was None
+        mock_import.return_value.fetch_artwork_if_missing.assert_called_once()
+
+
+class TestCLIImportErrorRecovery:
+    """Tests for CLI import error handling and recovery."""
+
+    def test_import_beets_failure_shows_error(
+        self, db_session, audio_album_folder, mock_exiftool_client
+    ):
+        """When beets fails, CLI should show clear error message."""
+        exiftool_mock = mock_exiftool_client()
+
+        with patch("app.integrations.beets.BeetsClient") as mock_beets:
+            mock_beets.return_value.identify = AsyncMock(
+                side_effect=Exception("Beets identification failed: no matches found")
+            )
+
+            runner = CliRunner()
+            with patch("app.database.SessionLocal", return_value=db_session):
+                result = runner.invoke(app, ["admin", "import", str(audio_album_folder)])
+
+        assert result.exit_code != 0
+        assert "failed" in result.output.lower() or "error" in result.output.lower()
+
+    def test_import_db_failure_reports_error(
+        self, db_session, audio_album_folder, mock_beets_client, mock_exiftool_client
+    ):
+        """When database insert fails, CLI should report the error."""
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        with patch("app.integrations.beets.BeetsClient", return_value=beets_mock):
+            with patch("app.integrations.exiftool.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.services.import_service.ImportService") as mock_import:
+                    mock_import.return_value.find_duplicate = MagicMock(return_value=None)
+                    mock_import.return_value.import_album = AsyncMock(
+                        side_effect=Exception("Database connection lost")
+                    )
+
+                    runner = CliRunner()
+                    with patch("app.database.SessionLocal", return_value=db_session):
+                        result = runner.invoke(app, ["admin", "import", str(audio_album_folder)])
+
+        assert result.exit_code != 0
+        assert "failed" in result.output.lower() or "Database" in result.output

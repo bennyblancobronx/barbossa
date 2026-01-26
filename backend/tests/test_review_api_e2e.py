@@ -1,4 +1,12 @@
-"""End-to-end tests for GUI review API flow."""
+"""End-to-end tests for GUI review API flow.
+
+This module contains comprehensive E2E tests for the review API:
+- Review approval flow with admin authentication
+- Review rejection with file cleanup
+- Full integration tests with real audio fixtures
+- Admin auth enforcement verification
+- Error handling and edge cases
+"""
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -355,3 +363,362 @@ class TestReviewNotFoundHandling:
         )
 
         assert response.status_code == 404
+
+
+class TestReviewIntegrationWithRealAudio:
+    """Full integration tests with real audio files and admin authentication.
+
+    These tests verify the complete review approval flow using actual
+    audio file fixtures and proper admin authentication.
+    """
+
+    def test_full_review_approval_pipeline(
+        self, client, admin_auth_headers, db_session, pending_review_with_files,
+        mock_beets_client, mock_exiftool_client
+    ):
+        """Complete E2E: admin approves review, album created with all metadata."""
+        review, review_folder = pending_review_with_files
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        # Create the album that will be returned
+        artist = Artist(name="Approved Artist", normalized_name="approved artist", sort_name="approved artist")
+        db_session.add(artist)
+        db_session.flush()
+
+        imported_album = Album(
+            artist_id=artist.id,
+            title="Approved Album",
+            normalized_title="approved album",
+            year=2024,
+            path=str(review_folder),
+            total_tracks=2,
+            available_tracks=2,
+            artwork_path=None
+        )
+        db_session.add(imported_album)
+        db_session.commit()
+
+        with patch("app.api.review.BeetsClient", return_value=beets_mock):
+            with patch("app.api.review.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.api.review.ImportService") as mock_import:
+                    mock_import.return_value.import_album = AsyncMock(return_value=imported_album)
+                    mock_import.return_value.fetch_artwork_if_missing = AsyncMock(
+                        return_value="/path/to/fetched/cover.jpg"
+                    )
+
+                    response = client.post(
+                        f"/api/import/review/{review.id}/approve",
+                        json={
+                            "artist": "Approved Artist",
+                            "album": "Approved Album",
+                            "year": 2024
+                        },
+                        headers=admin_auth_headers
+                    )
+
+        assert response.status_code == 200, f"Failed: {response.json()}"
+        data = response.json()
+        assert data["status"] == "approved"
+        assert data["album_id"] == imported_album.id
+
+        # Verify review status updated in database
+        db_session.refresh(review)
+        assert review.status == PendingReviewStatus.APPROVED
+
+        # Verify all integration points were called
+        beets_mock.import_with_metadata.assert_called_once()
+        exiftool_mock.get_album_metadata.assert_called_once()
+        mock_import.return_value.import_album.assert_called_once()
+        mock_import.return_value.fetch_artwork_if_missing.assert_called_once()
+
+    def test_review_approval_with_artwork_fetch(
+        self, client, admin_auth_headers, db_session, pending_review_with_files,
+        mock_beets_client, mock_exiftool_client
+    ):
+        """Verify artwork is fetched when album has no artwork after import."""
+        review, review_folder = pending_review_with_files
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        artist = Artist(name="Art", normalized_name="art", sort_name="art")
+        db_session.add(artist)
+        db_session.flush()
+
+        # Album WITHOUT artwork initially
+        album = Album(
+            artist_id=artist.id,
+            title="Album",
+            normalized_title="album",
+            total_tracks=2,
+            available_tracks=2,
+            artwork_path=None  # No artwork
+        )
+        db_session.add(album)
+        db_session.commit()
+
+        with patch("app.api.review.BeetsClient", return_value=beets_mock):
+            with patch("app.api.review.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.api.review.ImportService") as mock_import:
+                    mock_import.return_value.import_album = AsyncMock(return_value=album)
+                    mock_import.return_value.fetch_artwork_if_missing = AsyncMock(
+                        return_value="/cover.jpg"
+                    )
+
+                    response = client.post(
+                        f"/api/import/review/{review.id}/approve",
+                        json={"artist": "Art", "album": "Album"},
+                        headers=admin_auth_headers
+                    )
+
+        assert response.status_code == 200
+        # Artwork fetch should be called since artwork_path was None
+        mock_import.return_value.fetch_artwork_if_missing.assert_called_once_with(album)
+
+    def test_review_approval_skips_artwork_when_present(
+        self, client, admin_auth_headers, db_session, pending_review_with_files,
+        mock_beets_client, mock_exiftool_client
+    ):
+        """When album already has artwork, fetch should not be called."""
+        review, review_folder = pending_review_with_files
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        artist = Artist(name="Art", normalized_name="art", sort_name="art")
+        db_session.add(artist)
+        db_session.flush()
+
+        # Album WITH existing artwork
+        album = Album(
+            artist_id=artist.id,
+            title="Album",
+            normalized_title="album",
+            total_tracks=2,
+            available_tracks=2,
+            artwork_path="/existing/cover.jpg"  # Has artwork
+        )
+        db_session.add(album)
+        db_session.commit()
+
+        with patch("app.api.review.BeetsClient", return_value=beets_mock):
+            with patch("app.api.review.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.api.review.ImportService") as mock_import:
+                    mock_import.return_value.import_album = AsyncMock(return_value=album)
+                    mock_import.return_value.fetch_artwork_if_missing = AsyncMock()
+
+                    response = client.post(
+                        f"/api/import/review/{review.id}/approve",
+                        json={"artist": "Art", "album": "Album"},
+                        headers=admin_auth_headers
+                    )
+
+        assert response.status_code == 200
+        # fetch_artwork_if_missing should NOT be called
+        mock_import.return_value.fetch_artwork_if_missing.assert_not_called()
+
+    def test_review_rejection_with_file_cleanup(
+        self, client, admin_auth_headers, db_session, pending_review_with_files
+    ):
+        """Full rejection flow: admin rejects, files deleted, status updated."""
+        review, review_folder = pending_review_with_files
+
+        # Verify files exist before rejection
+        assert review_folder.exists()
+        assert any(review_folder.iterdir())
+
+        response = client.post(
+            f"/api/import/review/{review.id}/reject",
+            json={"delete_files": True},
+            headers=admin_auth_headers
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "rejected"
+
+        # Files should be deleted
+        assert not review_folder.exists()
+
+        # Review status updated
+        db_session.refresh(review)
+        assert review.status == PendingReviewStatus.REJECTED
+
+
+class TestAdminAuthenticationEnforcement:
+    """Tests verifying admin authentication is properly enforced."""
+
+    def test_all_review_endpoints_require_auth(self, client, db_session):
+        """All review endpoints should return 401 without auth token."""
+        from app.models.pending_review import PendingReview, PendingReviewStatus
+
+        # Create a review for testing
+        review = PendingReview(
+            path="/tmp/test",
+            suggested_artist="A",
+            suggested_album="B",
+            status=PendingReviewStatus.PENDING
+        )
+        db_session.add(review)
+        db_session.commit()
+
+        endpoints = [
+            ("GET", "/api/import/review"),
+            ("GET", "/api/import/review/failed"),
+            ("GET", f"/api/import/review/{review.id}"),
+            ("POST", f"/api/import/review/{review.id}/approve"),
+            ("POST", f"/api/import/review/{review.id}/reject"),
+        ]
+
+        for method, url in endpoints:
+            if method == "GET":
+                response = client.get(url)
+            else:
+                response = client.post(url, json={})
+
+            assert response.status_code in (401, 403, 422), \
+                f"{method} {url} allowed without auth: {response.status_code}"
+
+    def test_regular_user_cannot_access_review_endpoints(
+        self, client, auth_headers, db_session
+    ):
+        """Non-admin users should get 403 on review endpoints."""
+        from app.models.pending_review import PendingReview, PendingReviewStatus
+
+        review = PendingReview(
+            path="/tmp/test",
+            suggested_artist="A",
+            suggested_album="B",
+            status=PendingReviewStatus.PENDING
+        )
+        db_session.add(review)
+        db_session.commit()
+
+        # List pending
+        response = client.get("/api/import/review", headers=auth_headers)
+        assert response.status_code == 403
+
+        # List failed
+        response = client.get("/api/import/review/failed", headers=auth_headers)
+        assert response.status_code == 403
+
+        # Get single
+        response = client.get(f"/api/import/review/{review.id}", headers=auth_headers)
+        assert response.status_code == 403
+
+        # Approve
+        response = client.post(
+            f"/api/import/review/{review.id}/approve",
+            json={"artist": "A", "album": "B"},
+            headers=auth_headers
+        )
+        assert response.status_code == 403
+
+        # Reject
+        response = client.post(
+            f"/api/import/review/{review.id}/reject",
+            json={"delete_files": True},
+            headers=auth_headers
+        )
+        assert response.status_code == 403
+
+    def test_admin_can_access_all_review_endpoints(
+        self, client, admin_auth_headers, db_session
+    ):
+        """Admin users should have access to all review endpoints."""
+        from app.models.pending_review import PendingReview, PendingReviewStatus
+
+        review = PendingReview(
+            path="/tmp/test",
+            suggested_artist="Test Artist",
+            suggested_album="Test Album",
+            status=PendingReviewStatus.PENDING
+        )
+        db_session.add(review)
+        db_session.commit()
+
+        # List pending
+        response = client.get("/api/import/review", headers=admin_auth_headers)
+        assert response.status_code == 200
+
+        # List failed
+        response = client.get("/api/import/review/failed", headers=admin_auth_headers)
+        assert response.status_code == 200
+
+        # Get single
+        response = client.get(f"/api/import/review/{review.id}", headers=admin_auth_headers)
+        assert response.status_code == 200
+
+
+class TestReviewApprovalErrorHandling:
+    """Tests for error handling during review approval."""
+
+    def test_approval_with_missing_source_folder(
+        self, client, admin_auth_headers, db_session
+    ):
+        """Approval should fail gracefully if source folder is gone."""
+        from app.models.pending_review import PendingReview, PendingReviewStatus
+
+        review = PendingReview(
+            path="/nonexistent/folder/that/does/not/exist",
+            suggested_artist="Artist",
+            suggested_album="Album",
+            status=PendingReviewStatus.PENDING
+        )
+        db_session.add(review)
+        db_session.commit()
+
+        response = client.post(
+            f"/api/import/review/{review.id}/approve",
+            json={"artist": "Artist", "album": "Album"},
+            headers=admin_auth_headers
+        )
+
+        # API may return 404 (folder check) or 500 (wrapped in exception handler)
+        # Either way, the approval should fail
+        assert response.status_code in (404, 500)
+        detail = response.json()["detail"].lower()
+        assert "folder" in detail or "not found" in detail or "exist" in detail
+
+    def test_approval_beets_failure_returns_error(
+        self, client, admin_auth_headers, db_session, pending_review_with_files
+    ):
+        """When beets fails during approval, return 500 with error details."""
+        review, review_folder = pending_review_with_files
+
+        with patch("app.api.review.BeetsClient") as mock_beets:
+            mock_beets.return_value.import_with_metadata = AsyncMock(
+                side_effect=Exception("Beets subprocess crashed")
+            )
+
+            response = client.post(
+                f"/api/import/review/{review.id}/approve",
+                json={"artist": "Artist", "album": "Album"},
+                headers=admin_auth_headers
+            )
+
+        assert response.status_code == 500
+        assert "Beets" in response.json()["detail"]
+
+    def test_approval_db_failure_returns_error(
+        self, client, admin_auth_headers, db_session, pending_review_with_files,
+        mock_beets_client, mock_exiftool_client
+    ):
+        """When database insert fails, return 500 with error."""
+        review, review_folder = pending_review_with_files
+        beets_mock = mock_beets_client()
+        exiftool_mock = mock_exiftool_client()
+
+        with patch("app.api.review.BeetsClient", return_value=beets_mock):
+            with patch("app.api.review.ExifToolClient", return_value=exiftool_mock):
+                with patch("app.api.review.ImportService") as mock_import:
+                    mock_import.return_value.import_album = AsyncMock(
+                        side_effect=Exception("Database constraint violation")
+                    )
+
+                    response = client.post(
+                        f"/api/import/review/{review.id}/approve",
+                        json={"artist": "Artist", "album": "Album"},
+                        headers=admin_auth_headers
+                    )
+
+        assert response.status_code == 500
+        assert "Database" in response.json()["detail"]

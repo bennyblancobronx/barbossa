@@ -143,3 +143,199 @@ def test_track(db, test_album):
     db.commit()
     db.refresh(track)
     return track
+
+
+@pytest.fixture
+def real_audio_sample():
+    """Generate a minimal valid WAV audio file for testing.
+
+    Creates a proper WAV file with PCM audio data that passes
+    format validation by beets/exiftool.
+    """
+    import struct
+    import io
+
+    # WAV file parameters
+    sample_rate = 44100
+    num_channels = 2
+    bits_per_sample = 16
+    duration_seconds = 1  # 1 second of audio
+
+    num_samples = sample_rate * duration_seconds
+    bytes_per_sample = bits_per_sample // 8
+    data_size = num_samples * num_channels * bytes_per_sample
+
+    # Generate silence (zeros) as audio data
+    audio_data = b'\x00' * data_size
+
+    # Build WAV file
+    wav_buffer = io.BytesIO()
+
+    # RIFF header
+    wav_buffer.write(b'RIFF')
+    wav_buffer.write(struct.pack('<I', 36 + data_size))  # File size - 8
+    wav_buffer.write(b'WAVE')
+
+    # fmt chunk
+    wav_buffer.write(b'fmt ')
+    wav_buffer.write(struct.pack('<I', 16))  # Chunk size
+    wav_buffer.write(struct.pack('<H', 1))   # Audio format (PCM)
+    wav_buffer.write(struct.pack('<H', num_channels))
+    wav_buffer.write(struct.pack('<I', sample_rate))
+    wav_buffer.write(struct.pack('<I', sample_rate * num_channels * bytes_per_sample))  # Byte rate
+    wav_buffer.write(struct.pack('<H', num_channels * bytes_per_sample))  # Block align
+    wav_buffer.write(struct.pack('<H', bits_per_sample))
+
+    # data chunk
+    wav_buffer.write(b'data')
+    wav_buffer.write(struct.pack('<I', data_size))
+    wav_buffer.write(audio_data)
+
+    return wav_buffer.getvalue()
+
+
+@pytest.fixture
+def audio_album_folder(tmp_path, real_audio_sample):
+    """Create a test album folder with real audio files.
+
+    Returns a folder containing valid WAV audio files suitable for
+    end-to-end import testing with real audio processing.
+    """
+    album_dir = tmp_path / "Test Artist" / "Test Album (2024)"
+    album_dir.mkdir(parents=True)
+
+    # Create multiple audio tracks
+    (album_dir / "01 - Track One.wav").write_bytes(real_audio_sample)
+    (album_dir / "02 - Track Two.wav").write_bytes(real_audio_sample)
+
+    # Create cover art (minimal valid JPEG)
+    # JPEG magic bytes + minimal structure
+    jpeg_header = bytes([
+        0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
+        0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
+    ])
+    jpeg_data = jpeg_header + b'\x00' * 64 + bytes([0xFF, 0xD9])  # Minimal JPEG
+    (album_dir / "cover.jpg").write_bytes(jpeg_data)
+
+    return album_dir
+
+
+@pytest.fixture
+def mock_beets_client():
+    """Factory fixture to create mocked BeetsClient with configurable behavior.
+
+    Use this for tests that need realistic beets behavior without
+    calling the actual beets subprocess.
+    """
+    from unittest.mock import MagicMock, AsyncMock
+
+    def _create_mock(
+        identify_result=None,
+        import_returns_same_path=True,
+        import_raises=None
+    ):
+        mock = MagicMock()
+
+        # Default identify result
+        if identify_result is None:
+            identify_result = {
+                "artist": "Test Artist",
+                "album": "Test Album",
+                "year": 2024,
+                "confidence": 0.95
+            }
+        mock.identify = AsyncMock(return_value=identify_result)
+
+        # Configure import behavior
+        if import_raises:
+            mock.import_album = AsyncMock(side_effect=import_raises)
+            mock.import_with_metadata = AsyncMock(side_effect=import_raises)
+        elif import_returns_same_path:
+            # Returns the input path (simulates no-move or same-location import)
+            async def return_input(path, **kwargs):
+                return path
+            mock.import_album = AsyncMock(side_effect=return_input)
+            mock.import_with_metadata = AsyncMock(side_effect=return_input)
+
+        mock.fetch_artwork = AsyncMock(return_value=None)
+
+        return mock
+
+    return _create_mock
+
+
+@pytest.fixture
+def mock_exiftool_client():
+    """Factory fixture to create mocked ExifToolClient.
+
+    Returns track metadata based on files found in the given path.
+    """
+    from unittest.mock import MagicMock, AsyncMock
+    from pathlib import Path
+
+    def _create_mock(tracks_metadata=None):
+        mock = MagicMock()
+
+        if tracks_metadata is None:
+            # Default: generate metadata based on audio files in path
+            async def extract_metadata(path):
+                path = Path(path)
+                audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff"}
+                tracks = []
+
+                for i, f in enumerate(sorted(path.iterdir())):
+                    if f.is_file() and f.suffix.lower() in audio_extensions:
+                        tracks.append({
+                            "title": f.stem.split(" - ", 1)[-1] if " - " in f.stem else f.stem,
+                            "track_number": i + 1,
+                            "disc_number": 1,
+                            "duration": 180,
+                            "sample_rate": 44100,
+                            "bit_depth": 16,
+                            "format": f.suffix[1:].upper(),
+                            "path": str(f),
+                            "file_size": f.stat().st_size if f.exists() else 1000
+                        })
+
+                return tracks
+
+            mock.get_album_metadata = AsyncMock(side_effect=extract_metadata)
+        else:
+            mock.get_album_metadata = AsyncMock(return_value=tracks_metadata)
+
+        return mock
+
+    return _create_mock
+
+
+@pytest.fixture
+def pending_review_with_files(db, tmp_path, real_audio_sample):
+    """Create a pending review with actual audio files on disk.
+
+    Provides both the database record and real files for E2E testing.
+    """
+    from app.models.pending_review import PendingReview, PendingReviewStatus
+
+    # Create review folder with audio
+    review_folder = tmp_path / "review" / "pending-album-test"
+    review_folder.mkdir(parents=True)
+    (review_folder / "01 - Track One.wav").write_bytes(real_audio_sample)
+    (review_folder / "02 - Track Two.wav").write_bytes(real_audio_sample)
+
+    # Create database record
+    review = PendingReview(
+        path=str(review_folder),
+        suggested_artist="Suggested Artist",
+        suggested_album="Suggested Album",
+        beets_confidence=0.85,
+        track_count=2,
+        quality_info={"sample_rate": 44100, "bit_depth": 16, "format": "wav"},
+        source="import",
+        source_url="",
+        status=PendingReviewStatus.PENDING
+    )
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+
+    return review, review_folder
