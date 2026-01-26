@@ -71,6 +71,8 @@ function handleMessage(data) {
       })
       // Refresh ALL library queries to show new album everywhere
       queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-artists')
+      queryClient.invalidateQueries('user-library-artist-albums')
       queryClient.invalidateQueries('user-library-tracks')
       queryClient.invalidateQueries('artists')
       queryClient.invalidateQueries('artist-albums')
@@ -93,6 +95,8 @@ function handleMessage(data) {
       })
       // Refresh ALL library queries to show new album everywhere
       queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-artists')
+      queryClient.invalidateQueries('user-library-artist-albums')
       queryClient.invalidateQueries('user-library-tracks')
       queryClient.invalidateQueries('artists')
       queryClient.invalidateQueries('artist-albums')

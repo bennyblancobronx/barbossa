@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.108] - 2026-01-26
+
+### TL;DR
+- User Library now mirrors Master Library hierarchy: Artists -> Albums -> Tracks
+
+### Changed
+- **UserLibrary.jsx**: Rewritten to match Master Library structure (no more separate Tracks view)
+- **user_library.py**: Added `get_library_artists()` and `get_library_artist_albums()` methods
+- **library.py**: Added `/me/library/artists` and `/me/library/artists/{id}/albums` endpoints
+- **api.js**: Added `getUserLibraryArtists()` and `getUserLibraryArtistAlbums()` functions
+
+### How It Works Now
+User Library hierarchy matches Master Library:
+1. **Artists view**: Shows artists where you have hearted content
+2. **Click artist**: Shows that artist's albums in your library
+3. **Click album**: Opens AlbumModal with tracks
+
+No more flat "Tracks" view. The hierarchy is always Artist -> Album -> Tracks.
+
+### Cache Invalidation
+Updated all heart handlers to invalidate new query keys:
+- `user-library-artists`
+- `user-library-artist-albums`
+
+---
+
 ## [0.1.107] - 2026-01-26
 
 ### TL;DR

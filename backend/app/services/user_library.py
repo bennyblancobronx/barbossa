@@ -324,40 +324,106 @@ class UserLibraryService:
         ).fetchall()
         return {row[0] for row in result}
 
+    def get_library_artists(
+        self,
+        user_id: int,
+        letter: Optional[str] = None,
+        page: int = 1,
+        limit: int = 50
+    ) -> Dict[str, Any]:
+        """Get artists in user's library (artists with at least one hearted album).
+
+        Args:
+            user_id: User ID
+            letter: Optional letter filter (A-Z, or # for non-alpha)
+            page: Page number
+            limit: Items per page
+
+        Returns:
+            Dict with items, total, page, limit, pages
+        """
+        from app.models.artist import Artist
+
+        # Get distinct artists from hearted albums
+        query = (
+            self.db.query(Artist)
+            .join(Album, Artist.id == Album.artist_id)
+            .join(user_albums, Album.id == user_albums.c.album_id)
+            .filter(user_albums.c.user_id == user_id)
+            .distinct()
+        )
+
+        # Apply letter filter
+        if letter:
+            if letter == '#':
+                # Non-alphabetic
+                query = query.filter(~Artist.sort_name.op('~')('^[A-Za-z]'))
+            else:
+                query = query.filter(Artist.sort_name.ilike(f'{letter}%'))
+
+        query = query.order_by(Artist.sort_name)
+
+        total = query.count()
+        items = query.offset((page - 1) * limit).limit(limit).all()
+        pages = (total + limit - 1) // limit
+
+        # Mark all as hearted (they have at least one hearted album)
+        for artist in items:
+            artist.is_hearted = True
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": pages,
+        }
+
+    def get_library_artist_albums(
+        self,
+        user_id: int,
+        artist_id: int
+    ) -> list:
+        """Get user's hearted albums for a specific artist.
+
+        Args:
+            user_id: User ID
+            artist_id: Artist ID
+
+        Returns:
+            List of Album objects
+        """
+        albums = (
+            self.db.query(Album)
+            .options(joinedload(Album.artist))
+            .join(user_albums, Album.id == user_albums.c.album_id)
+            .filter(
+                user_albums.c.user_id == user_id,
+                Album.artist_id == artist_id
+            )
+            .order_by(Album.year.desc(), Album.title)
+            .all()
+        )
+
+        # Mark all as hearted
+        for album in albums:
+            album.is_hearted = True
+
+        return albums
+
     def get_library_tracks(
         self,
         user_id: int,
         page: int = 1,
         limit: int = 50
     ) -> Dict[str, Any]:
-        """Get user's hearted tracks with album/artist info.
-
-        Returns tracks that are either:
-        1. Individually hearted (in user_tracks)
-        2. From a hearted album (album in user_albums)
-        """
-        from sqlalchemy import or_, exists
-
-        # Subquery: track is individually hearted
-        individually_hearted = exists(
-            select(user_tracks.c.track_id).where(
-                user_tracks.c.track_id == Track.id,
-                user_tracks.c.user_id == user_id
-            )
-        )
-
-        # Subquery: track's album is hearted
-        album_hearted = exists(
-            select(user_albums.c.album_id).where(
-                user_albums.c.album_id == Track.album_id,
-                user_albums.c.user_id == user_id
-            )
-        )
-
+        """Get ALL tracks from user's hearted albums."""
         query = (
             self.db.query(Track)
             .options(joinedload(Track.album).joinedload(Album.artist))
-            .filter(or_(individually_hearted, album_hearted))
+            .join(Album, Track.album_id == Album.id)
+            .join(user_albums, Album.id == user_albums.c.album_id)
+            .filter(user_albums.c.user_id == user_id)
             .order_by(Track.album_id, Track.disc_number, Track.track_number)
         )
 

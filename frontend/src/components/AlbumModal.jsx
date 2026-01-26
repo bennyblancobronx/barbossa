@@ -47,6 +47,8 @@ export default function AlbumModal({ album, onClose }) {
       }
       // Invalidate ALL library caches so all pages update
       queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-artists')
+      queryClient.invalidateQueries('user-library-artist-albums')
       queryClient.invalidateQueries('user-library-tracks')
       queryClient.invalidateQueries('artists')
       queryClient.invalidateQueries('artist-albums')

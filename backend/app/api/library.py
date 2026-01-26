@@ -360,6 +360,65 @@ def get_user_library(
     )
 
 
+@router.get("/me/library/artists", response_model=ArtistListResponse)
+def get_user_library_artists(
+    letter: Optional[str] = Query(None, max_length=1),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get artists in current user's library (artists with hearted albums)."""
+    service = UserLibraryService(db)
+    result = service.get_library_artists(user.id, letter, page, limit)
+
+    items = [
+        ArtistResponse.model_validate(a)
+        for a in result["items"]
+    ]
+    # Mark all as hearted
+    for item in items:
+        item.is_hearted = True
+
+    return ArtistListResponse(
+        items=items,
+        total=result["total"],
+        page=result["page"],
+        limit=result["limit"],
+    )
+
+
+@router.get("/me/library/artists/{artist_id}/albums", response_model=List[AlbumResponse])
+def get_user_library_artist_albums(
+    artist_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get user's hearted albums for a specific artist."""
+    service = UserLibraryService(db)
+    albums = service.get_library_artist_albums(user.id, artist_id)
+
+    if not albums:
+        raise HTTPException(status_code=404, detail="No albums found for this artist in your library")
+
+    return [
+        AlbumResponse(
+            id=a.id,
+            artist_id=a.artist_id,
+            artist_name=a.artist.name if a.artist else None,
+            title=a.title,
+            year=a.year,
+            path=a.path,
+            artwork_path=a.artwork_path,
+            total_tracks=a.total_tracks,
+            available_tracks=a.available_tracks,
+            source=a.source,
+            is_hearted=True,
+        )
+        for a in albums
+    ]
+
+
 @router.get("/me/library/tracks", response_model=List[TrackResponse])
 def get_user_library_tracks(
     page: int = Query(1, ge=1),
