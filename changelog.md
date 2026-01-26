@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.91] - 2026-01-26
+
+### TL;DR
+- Album modal UI improvements: larger hearts, play buttons, hover-only edit icon
+
+### Changed
+- **TrackRow.jsx**: Heart icon size increased from 16px to 20px
+- **TrackRow.jsx**: Added play button between heart and track number (visible on hover)
+- **AlbumModal.jsx**: Edit artwork icon now only shows on hover
+- **AlbumCard.jsx**: Removed source badge (Qobuz pill) from album cards
+- **design-system.css**: Added .track-play styles for new play button
+
+---
+
+## [0.1.90] - 2026-01-26
+
+### TL;DR
+- Swapped edit and delete button positions on album/artist cards
+
+### Changed
+- **AlbumCard.jsx**: Delete button now top-left, Edit button now top-right
+- **ArtistCard.jsx**: Delete button now top-left, Edit button now top-right
+
+---
+
 ## [0.1.89] - 2026-01-26
 
 ### TL;DR

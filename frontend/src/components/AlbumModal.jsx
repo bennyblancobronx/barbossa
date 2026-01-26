@@ -6,6 +6,7 @@ import TrackRow from './TrackRow'
 
 export default function AlbumModal({ album, onClose }) {
   const [imageKey, setImageKey] = useState(0)
+  const [isArtworkHovered, setIsArtworkHovered] = useState(false)
   const fileInputRef = useRef(null)
 
   const { data, isLoading, refetch } = useQuery(
@@ -58,7 +59,12 @@ export default function AlbumModal({ album, onClose }) {
 
         <div className="album-detail">
           <div className="album-detail-header">
-            <div className="album-detail-artwork" style={{ position: 'relative' }}>
+            <div
+              className="album-detail-artwork"
+              style={{ position: 'relative' }}
+              onMouseEnter={() => setIsArtworkHovered(true)}
+              onMouseLeave={() => setIsArtworkHovered(false)}
+            >
               <input
                 type="file"
                 ref={fileInputRef}
@@ -83,21 +89,23 @@ export default function AlbumModal({ album, onClose }) {
                   <span>{data.title[0]}</span>
                 </div>
               )}
-              <button
-                className="btn-icon edit-btn"
-                onClick={handleEditArtwork}
-                title="Edit artwork"
-                style={{
-                  position: 'absolute',
-                  bottom: '8px',
-                  right: '8px',
-                  background: 'rgba(0,0,0,0.7)',
-                  borderRadius: '4px',
-                  padding: '6px'
-                }}
-              >
-                <PencilIcon />
-              </button>
+              {isArtworkHovered && (
+                <button
+                  className="btn-icon edit-btn"
+                  onClick={handleEditArtwork}
+                  title="Edit artwork"
+                  style={{
+                    position: 'absolute',
+                    bottom: '8px',
+                    right: '8px',
+                    background: 'rgba(0,0,0,0.7)',
+                    borderRadius: '4px',
+                    padding: '6px'
+                  }}
+                >
+                  <PencilIcon />
+                </button>
+              )}
             </div>
 
             <div className="album-detail-info">

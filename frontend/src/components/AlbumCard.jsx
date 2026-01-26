@@ -108,25 +108,25 @@ export default function AlbumCard({ album, onClick, onDelete, onArtworkChange })
           </div>
         )}
 
-        {/* Edit icon: top-left, appears on hover */}
-        {showEdit && (
-          <button
-            className="btn-icon edit-btn album-action-top-left"
-            onClick={handleEditClick}
-            title="Edit artwork"
-          >
-            <PencilIcon />
-          </button>
-        )}
-
-        {/* Trash icon: top-right, appears after 1s hover */}
+        {/* Trash icon: top-left, appears after 1s hover */}
         {showTrash && (
           <button
-            className="btn-icon delete-btn album-action-top-right"
+            className="btn-icon delete-btn album-action-top-left"
             onClick={handleDelete}
             title="Delete album"
           >
             <TrashIcon />
+          </button>
+        )}
+
+        {/* Edit icon: top-right, appears on hover */}
+        {showEdit && (
+          <button
+            className="btn-icon edit-btn album-action-top-right"
+            onClick={handleEditClick}
+            title="Edit artwork"
+          >
+            <PencilIcon />
           </button>
         )}
 
@@ -139,13 +139,6 @@ export default function AlbumCard({ album, onClick, onDelete, onArtworkChange })
         >
           <HeartIcon filled={isHearted} />
         </button>
-
-        {/* Source badge: bottom-right */}
-        {album.source && (
-          <span className={`album-source-badge badge badge-${album.source}`}>
-            {album.source}
-          </span>
-        )}
       </div>
 
       <div className="album-card-info">

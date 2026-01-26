@@ -847,6 +847,24 @@ body {
   color: var(--color-accent);
 }
 
+.track-play {
+  flex-shrink: 0;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.track-play.is-visible {
+  opacity: 1;
+}
+
+.track-play:hover {
+  color: var(--color-accent);
+}
+
 .track-number {
   flex-shrink: 0;
   width: 32px;

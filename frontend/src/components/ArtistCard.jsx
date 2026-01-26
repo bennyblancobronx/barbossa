@@ -109,25 +109,25 @@ export default function ArtistCard({ artist, onClick, onDelete }) {
           </div>
         )}
 
-        {/* Edit icon: top-left, appears on hover */}
-        {showEdit && (
-          <button
-            className="btn-icon edit-btn album-action-top-left"
-            onClick={handleEditClick}
-            title="Edit artwork"
-          >
-            <PencilIcon />
-          </button>
-        )}
-
-        {/* Trash icon: top-right, appears after 1s hover */}
+        {/* Trash icon: top-left, appears after 1s hover */}
         {showTrash && (
           <button
-            className="btn-icon delete-btn album-action-top-right"
+            className="btn-icon delete-btn album-action-top-left"
             onClick={handleDelete}
             title="Delete artist"
           >
             <TrashIcon />
+          </button>
+        )}
+
+        {/* Edit icon: top-right, appears on hover */}
+        {showEdit && (
+          <button
+            className="btn-icon edit-btn album-action-top-right"
+            onClick={handleEditClick}
+            title="Edit artwork"
+          >
+            <PencilIcon />
           </button>
         )}
 
