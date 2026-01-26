@@ -196,14 +196,35 @@ class UserLibraryService:
         return True
 
     def is_track_hearted(self, user_id: int, track_id: int) -> bool:
-        """Check if user has hearted a track."""
-        result = self.db.execute(
+        """Check if user has hearted a track.
+
+        Returns True if track is either:
+        1. Individually hearted (in user_tracks)
+        2. From a hearted album (album in user_albums)
+        """
+        # Check if individually hearted
+        individual = self.db.execute(
             select(user_tracks).where(
                 user_tracks.c.user_id == user_id,
                 user_tracks.c.track_id == track_id
             )
         ).first()
-        return result is not None
+        if individual:
+            return True
+
+        # Check if track's album is hearted
+        track = self.db.query(Track).filter(Track.id == track_id).first()
+        if track:
+            album_hearted = self.db.execute(
+                select(user_albums).where(
+                    user_albums.c.user_id == user_id,
+                    user_albums.c.album_id == track.album_id
+                )
+            ).first()
+            if album_hearted:
+                return True
+
+        return False
 
     def get_hearted_album_ids(self, user_id: int) -> set:
         """Get set of album IDs hearted by user."""
@@ -213,10 +234,29 @@ class UserLibraryService:
         return {row[0] for row in result}
 
     def get_hearted_track_ids(self, user_id: int) -> set:
-        """Get set of track IDs hearted by user."""
-        result = self.db.execute(
-            select(user_tracks.c.track_id).where(user_tracks.c.user_id == user_id)
-        ).fetchall()
+        """Get set of track IDs hearted by user.
+
+        Returns track IDs that are either:
+        1. Individually hearted (in user_tracks)
+        2. From a hearted album (album in user_albums)
+        """
+        from sqlalchemy import union
+
+        # Individually hearted tracks
+        individual = select(user_tracks.c.track_id).where(
+            user_tracks.c.user_id == user_id
+        )
+
+        # Tracks from hearted albums
+        from_albums = (
+            select(Track.id)
+            .join(user_albums, Track.album_id == user_albums.c.album_id)
+            .where(user_albums.c.user_id == user_id)
+        )
+
+        # Combine both
+        combined = union(individual, from_albums)
+        result = self.db.execute(combined).fetchall()
         return {row[0] for row in result}
 
     def heart_artist(self, user_id: int, artist_id: int, username: str) -> int:
@@ -290,13 +330,35 @@ class UserLibraryService:
         page: int = 1,
         limit: int = 50
     ) -> Dict[str, Any]:
-        """Get user's hearted tracks with album/artist info."""
+        """Get user's hearted tracks with album/artist info.
+
+        Returns tracks that are either:
+        1. Individually hearted (in user_tracks)
+        2. From a hearted album (album in user_albums)
+        """
+        from sqlalchemy import or_, exists
+
+        # Subquery: track is individually hearted
+        individually_hearted = exists(
+            select(user_tracks.c.track_id).where(
+                user_tracks.c.track_id == Track.id,
+                user_tracks.c.user_id == user_id
+            )
+        )
+
+        # Subquery: track's album is hearted
+        album_hearted = exists(
+            select(user_albums.c.album_id).where(
+                user_albums.c.album_id == Track.album_id,
+                user_albums.c.user_id == user_id
+            )
+        )
+
         query = (
             self.db.query(Track)
             .options(joinedload(Track.album).joinedload(Album.artist))
-            .join(user_tracks, Track.id == user_tracks.c.track_id)
-            .filter(user_tracks.c.user_id == user_id)
-            .order_by(user_tracks.c.added_at.desc())
+            .filter(or_(individually_hearted, album_hearted))
+            .order_by(Track.album_id, Track.disc_number, Track.track_number)
         )
 
         total = query.count()

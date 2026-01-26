@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.107] - 2026-01-26
+
+### TL;DR
+- Fixed User Library Tracks view to show ALL tracks from hearted albums
+
+### Fixed
+- **user_library.py**: `get_library_tracks()` now returns tracks from hearted albums, not just individually hearted tracks
+- **user_library.py**: `get_hearted_track_ids()` includes tracks from hearted albums for consistent is_hearted state
+- **user_library.py**: `is_track_hearted()` checks both individual track hearts AND album-level hearts
+
+### Root Cause
+When user hearts an ALBUM, only the album was added to user_albums table. The tracks from that album did NOT appear in User Library Tracks view because `get_library_tracks()` only queried user_tracks table (individually hearted tracks).
+
+Now the query uses UNION to include BOTH:
+1. Individually hearted tracks (user_tracks)
+2. All tracks from hearted albums (user_albums)
+
+---
+
 ## [0.1.106] - 2026-01-26
 
 ### TL;DR
