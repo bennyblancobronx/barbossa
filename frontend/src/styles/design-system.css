@@ -830,11 +830,17 @@ body {
   background: var(--color-selected-overlay);
 }
 
+/* Track row buttons - Braun spec: 44px min touch target */
 .track-heart {
   flex-shrink: 0;
-  width: var(--icon-lg);
-  height: var(--icon-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   padding: 0;
+  border: none;
+  background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
   transition: color var(--transition-fast);
@@ -851,10 +857,14 @@ body {
 
 .track-play {
   flex-shrink: 0;
-  width: var(--icon-md);
-  height: var(--icon-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  margin-left: var(--space-2);
+  border: none;
+  background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
   opacity: 0;

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.93] - 2026-01-26
+
+### TL;DR
+- Braun-compliant track row buttons: 44px touch targets, 24px icons
+
+### Changed
+- **TrackRow.jsx**: Removed btn-icon class, icons now 24px each
+- **design-system.css**: Track buttons now 44px touch targets per Braun spec
+
+---
+
 ## [0.1.92] - 2026-01-26
 
 ### TL;DR

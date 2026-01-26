@@ -59,19 +59,20 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
       onMouseLeave={() => setIsHovered(false)}
     >
       <button
-        className={`btn-icon track-heart ${isHearted ? 'is-active' : ''}`}
+        className={`track-heart ${isHearted ? 'is-active' : ''}`}
         onClick={handleHeart}
         disabled={isLoading}
+        title={isHearted ? 'Remove from library' : 'Add to library'}
       >
         <HeartIcon filled={isHearted} size={24} />
       </button>
 
       <button
-        className={`btn-icon track-play ${isHovered ? 'is-visible' : ''}`}
+        className={`track-play ${isHovered ? 'is-visible' : ''}`}
         onClick={handlePlay}
         title="Play track"
       >
-        <PlayIcon size={20} />
+        <PlayIcon size={24} />
       </button>
 
       <span className="track-number">{track.track_number || '-'}</span>
