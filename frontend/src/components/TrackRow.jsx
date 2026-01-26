@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useQueryClient } from 'react-query'
 import * as api from '../services/api'
 import { usePlayerStore } from '../stores/player'
 
-export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
+export default function TrackRow({ track, onPlay, showAlbumInfo = false, onHeart }) {
   const [isHearted, setIsHearted] = useState(track.is_hearted)
   const [isLoading, setIsLoading] = useState(false)
+  const queryClient = useQueryClient()
 
   const { currentTrack, isPlaying, pause, resume } = usePlayerStore()
   const isCurrentTrack = currentTrack?.id === track.id
@@ -22,6 +24,9 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
         await api.heartTrack(track.id)
         setIsHearted(true)
       }
+      // Invalidate user library cache so My Library page updates
+      queryClient.invalidateQueries('user-library')
+      if (onHeart) onHeart(track.id, !isHearted)
     } catch (error) {
       console.error('Heart track failed:', error)
     } finally {

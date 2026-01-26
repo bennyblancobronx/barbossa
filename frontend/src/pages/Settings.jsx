@@ -2,20 +2,27 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import * as api from '../services/api'
 import { useNotificationStore } from '../stores/notifications'
+import { useAuthStore } from '../stores/auth'
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('general')
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
+  const isAdmin = user?.is_admin === true
 
   const { data: settings } = useQuery('settings', () => api.getSettings().then(r => r.data))
-  const { data: users } = useQuery('users', () => api.getUsers().then(r => r.data.items || r.data || []))
-  const { data: pending } = useQuery('pending-review', () => api.getPendingReview().then(r => r.data.items || r.data || []))
+  const { data: users } = useQuery('users', () => api.getUsers().then(r => r.data.items || r.data || []), {
+    enabled: isAdmin,
+  })
+  const { data: pending } = useQuery('pending-review', () => api.getPendingReview().then(r => r.data.items || r.data || []), {
+    enabled: isAdmin,
+  })
 
   const tabs = [
     { id: 'general', label: 'General' },
-    { id: 'users', label: 'Users' },
+    ...(isAdmin ? [{ id: 'users', label: 'Users' }] : []),
     { id: 'sources', label: 'Sources' },
-    { id: 'review', label: `Review Queue (${pending?.length || 0})` },
+    ...(isAdmin ? [{ id: 'review', label: `Review Queue (${pending?.length || 0})` }] : []),
     { id: 'backup', label: 'Backup' },
   ]
 

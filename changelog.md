@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.1.98] - 2026-01-26
+
+### TL;DR
+- Fixed heart functionality: cache invalidation, cross-page sync, added album heart in modal
+
+### Fixed
+- **ArtistCard.jsx**: Heart now invalidates react-query cache so My Library updates immediately
+- **AlbumCard.jsx**: Heart now invalidates react-query cache so My Library updates immediately
+- **TrackRow.jsx**: Heart now invalidates react-query cache so My Library updates immediately
+- **AlbumModal.jsx**: Added album-level heart button (previously only tracks had hearts)
+
+### Added
+- **design-system.css**: New `.heart-btn-lg` style for album modal heart button
+- All card components now support `onHeart` callback for parent notification
+
+### Technical
+- When hearting/unhearting from Master Library, My Library page now updates without refresh
+- AlbumModal now shows album heart button alongside Play All button
+
+---
+
+## [0.1.97] - 2026-01-26
+
+### TL;DR
+- Fixed console errors: missing fonts, 403 on admin endpoints, missing favicon
+
+### Fixed
+- **design-system.css**: Commented out broken @font-face rules for Braun Linear fonts (font files don't exist, CSS gracefully falls back to system fonts)
+- **Settings.jsx**: Admin API calls (getUsers, getPendingReview) now conditional on user.is_admin
+- **Settings.jsx**: Users/Review tabs only shown to admin users
+- **index.html**: Added favicon using existing placeholder-album.svg
+
+### Technical
+- Fonts: The CSS already had system font fallbacks; removed 404 errors by commenting out missing @font-face src urls
+- 403 errors: Settings page was calling admin-only endpoints regardless of user role
+- NotFoundError (bootstrap-autofill-overlay.js): Browser extension issue, not fixable on our end
+
+---
+
 ## [0.1.96] - 2026-01-26
 
 ### TL;DR

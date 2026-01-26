@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useQuery } from 'react-query'
+import { useQuery, useQueryClient } from 'react-query'
 import * as api from '../services/api'
 import { usePlayerStore } from '../stores/player'
 import TrackRow from './TrackRow'
@@ -7,7 +7,10 @@ import TrackRow from './TrackRow'
 export default function AlbumModal({ album, onClose }) {
   const [imageKey, setImageKey] = useState(0)
   const [isArtworkHovered, setIsArtworkHovered] = useState(false)
+  const [isHearted, setIsHearted] = useState(album.is_hearted)
+  const [isHeartLoading, setIsHeartLoading] = useState(false)
   const fileInputRef = useRef(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading, refetch } = useQuery(
     ['album', album.id],
@@ -23,6 +26,25 @@ export default function AlbumModal({ album, onClose }) {
   const handlePlayAll = () => {
     if (data.tracks?.length) {
       play(data.tracks[0], data.tracks)
+    }
+  }
+
+  const handleHeartAlbum = async () => {
+    setIsHeartLoading(true)
+    try {
+      if (isHearted) {
+        await api.unheartAlbum(data.id)
+        setIsHearted(false)
+      } else {
+        await api.heartAlbum(data.id)
+        setIsHearted(true)
+      }
+      queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries(['album', data.id])
+    } catch (error) {
+      console.error('Heart album failed:', error)
+    } finally {
+      setIsHeartLoading(false)
     }
   }
 
@@ -126,6 +148,14 @@ export default function AlbumModal({ album, onClose }) {
                 <button className="btn-primary" onClick={handlePlayAll}>
                   Play All
                 </button>
+                <button
+                  className={`btn-icon heart-btn-lg ${isHearted ? 'is-active' : ''}`}
+                  onClick={handleHeartAlbum}
+                  disabled={isHeartLoading}
+                  title={isHearted ? 'Remove from library' : 'Add to library'}
+                >
+                  <HeartIcon filled={isHearted} size={24} />
+                </button>
               </div>
             </div>
           </div>
@@ -175,6 +205,14 @@ function PencilIcon() {
     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" strokeWidth="2">
       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
+}
+
+function HeartIcon({ filled, size = 20 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} stroke="currentColor" fill={filled ? 'currentColor' : 'none'} strokeWidth="2">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   )
 }

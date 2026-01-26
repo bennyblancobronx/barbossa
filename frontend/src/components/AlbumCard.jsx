@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react'
+import { useQueryClient } from 'react-query'
 import * as api from '../services/api'
 
-export default function AlbumCard({ album, onClick, onDelete, onArtworkChange }) {
+export default function AlbumCard({ album, onClick, onDelete, onArtworkChange, onHeart }) {
   const [isHearted, setIsHearted] = useState(album.is_hearted)
   const [isLoading, setIsLoading] = useState(false)
+  const queryClient = useQueryClient()
   const [showTrash, setShowTrash] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [imageKey, setImageKey] = useState(0)
@@ -35,6 +37,9 @@ export default function AlbumCard({ album, onClick, onDelete, onArtworkChange })
         await api.heartAlbum(album.id)
         setIsHearted(true)
       }
+      // Invalidate user library cache so My Library page updates
+      queryClient.invalidateQueries('user-library')
+      if (onHeart) onHeart(album.id, !isHearted)
     } catch (error) {
       console.error('Heart action failed:', error)
     } finally {
