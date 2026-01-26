@@ -138,7 +138,7 @@
   --button-height-md: 44px;
   --button-height-lg: 52px;
   --input-height: 44px;
-  --row-height: 52px;
+  --row-height: 56px;
   --card-padding: 16px;
   --icon-sm: 16px;
   --icon-md: 20px;
@@ -835,14 +835,14 @@ body {
   background: var(--color-selected-overlay);
 }
 
-/* Track row buttons - Braun spec: 44px min touch target */
+/* Track row buttons - Braun spec: 48px recommended touch target, 32px xl icons */
 .track-heart {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: none;
   background: transparent;
@@ -865,8 +865,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: none;
   background: transparent;

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.104] - 2026-01-26
+
+### TL;DR
+- Fixed track row button sizes - now properly sized per Braun design specs
+
+### Fixed
+- **TrackRow.jsx**: Icons increased from 24px to 32px (Braun xl size)
+- **design-system.css**: Track buttons increased from 44px to 48px (Braun recommended touch target)
+- **design-system.css**: Row height increased from 52px to 56px to accommodate larger buttons
+- HeartIcon now uses dynamic stroke width (2.5px for 32px icons per Braun spec)
+
+---
+
 ## [0.1.103] - 2026-01-26
 
 ### TL;DR
