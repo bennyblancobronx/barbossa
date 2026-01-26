@@ -69,10 +69,13 @@ function handleMessage(data) {
         type: 'success',
         message: `Download complete: ${data.album_title || data.title || 'Album'}`
       })
-      // Refresh library to show new album
-      queryClient.invalidateQueries('albums')
+      // Refresh ALL library queries to show new album everywhere
       queryClient.invalidateQueries('user-library')
       queryClient.invalidateQueries('user-library-tracks')
+      queryClient.invalidateQueries('artists')
+      queryClient.invalidateQueries('artist-albums')
+      queryClient.invalidateQueries('albums')
+      queryClient.invalidateQueries('search-local')
       queryClient.invalidateQueries('downloads')
       break
 
@@ -88,10 +91,13 @@ function handleMessage(data) {
         type: 'success',
         message: `Import complete: ${data.artist_name} - ${data.album_title}`
       })
-      // Refresh library to show new album
+      // Refresh ALL library queries to show new album everywhere
+      queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-tracks')
       queryClient.invalidateQueries('artists')
       queryClient.invalidateQueries('artist-albums')
       queryClient.invalidateQueries('albums')
+      queryClient.invalidateQueries('search-local')
       break
 
     case 'import:review':
@@ -114,10 +120,13 @@ function handleMessage(data) {
 function handleLibraryUpdate(data) {
   const { addNotification } = useNotificationStore.getState()
 
-  // Always invalidate library queries to refresh data
-  queryClient.invalidateQueries('albums')
+  // Invalidate ALL library queries to refresh data everywhere
   queryClient.invalidateQueries('user-library')
   queryClient.invalidateQueries('user-library-tracks')
+  queryClient.invalidateQueries('artists')
+  queryClient.invalidateQueries('artist-albums')
+  queryClient.invalidateQueries('albums')
+  queryClient.invalidateQueries('search-local')
 
   switch (data.action) {
     case 'created':

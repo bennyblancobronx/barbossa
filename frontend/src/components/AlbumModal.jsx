@@ -45,7 +45,13 @@ export default function AlbumModal({ album, onClose }) {
         await api.heartAlbum(data.id)
         setIsHearted(true)
       }
+      // Invalidate ALL library caches so all pages update
       queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-tracks')
+      queryClient.invalidateQueries('artists')
+      queryClient.invalidateQueries('artist-albums')
+      queryClient.invalidateQueries('albums')
+      queryClient.invalidateQueries('search-local')
       queryClient.invalidateQueries(['album', data.id])
     } catch (error) {
       console.error('Heart album failed:', error)

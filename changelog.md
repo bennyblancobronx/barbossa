@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.106] - 2026-01-26
+
+### TL;DR
+- Fixed heart state not syncing between Master Library and User Library
+
+### Fixed
+- **AlbumCard.jsx**: Added full cache invalidation (artists, artist-albums, albums, search-local)
+- **ArtistCard.jsx**: Added full cache invalidation (artists, artist-albums, albums, search-local)
+- **AlbumModal.jsx**: Added missing user-library-tracks + full cache invalidation
+- **TrackRow.jsx**: Added full cache invalidation (artists, artist-albums, albums, search-local)
+- **websocket.js**: Unified cache invalidation for download:complete, import:complete, library:updated events
+
+### Root Cause
+When hearting items, only user-library queries were invalidated. Missing invalidations:
+- Master Library queries (artists, artist-albums, albums)
+- Search results query (search-local)
+
+This caused is_hearted to show stale cached data when navigating between pages.
+
+---
+
 ## [0.1.105] - 2026-01-26
 
 ### TL;DR

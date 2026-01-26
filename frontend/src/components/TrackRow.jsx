@@ -29,9 +29,13 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false, onHeart
         await api.heartTrack(track.id)
         setIsHearted(true)
       }
-      // Invalidate caches so all views update
+      // Invalidate ALL library caches so all pages update
       queryClient.invalidateQueries('user-library')
       queryClient.invalidateQueries('user-library-tracks')
+      queryClient.invalidateQueries('artists')
+      queryClient.invalidateQueries('artist-albums')
+      queryClient.invalidateQueries('albums')
+      queryClient.invalidateQueries('search-local')
       // Also invalidate album queries so track heart state updates in album views
       if (track.album_id) {
         queryClient.invalidateQueries(['album', track.album_id])
