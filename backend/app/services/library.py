@@ -8,6 +8,9 @@ from sqlalchemy import func, or_
 from app.models.artist import Artist
 from app.models.album import Album
 from app.models.track import Track
+from app.models.user import User
+from app.models.user_library import user_albums
+from app.services.symlink import SymlinkService
 
 logger = logging.getLogger(__name__)
 
@@ -145,35 +148,43 @@ class LibraryService:
 
         return results
 
-    def delete_album(self, album_id: int, delete_files: bool = True) -> bool:
+    def delete_album(
+        self, album_id: int, delete_files: bool = True
+    ) -> tuple[bool, str | None]:
         """Delete an album from database and optionally from disk.
+
+        Files are deleted FIRST to prevent orphaned files if DB deletion succeeds
+        but file deletion fails.
 
         Args:
             album_id: ID of album to delete
             delete_files: If True, also delete files from disk (default: True)
 
         Returns:
-            True if album was deleted, False if not found
+            tuple[bool, str | None]: (success, error_message)
+            - (True, None) if fully deleted
+            - (False, "error reason") if failed
         """
         album = self.get_album(album_id)
         if not album:
-            return False
+            return False, "Album not found"
 
         album_path = album.path
-        artist_id = album.artist_id
+        album_title = album.title
+        artist_name = album.artist.name if album.artist else "Unknown"
 
-        # Delete tracks first (foreign key constraint)
-        self.db.query(Track).filter(Track.album_id == album_id).delete()
-
-        # Delete album from database
-        self.db.delete(album)
-        self.db.commit()
-
-        # Delete files from disk if requested
+        # Step 1: Delete files FIRST (if requested)
         if delete_files and album_path:
             path = Path(album_path)
             if path.exists() and path.is_dir():
                 try:
+                    # SMB mounts can leave .smbdelete* files that block rmtree
+                    for smb_file in path.glob(".smbdelete*"):
+                        try:
+                            smb_file.unlink()
+                        except Exception:
+                            pass
+
                     shutil.rmtree(path)
                     logger.info(f"Deleted album files: {path}")
 
@@ -182,8 +193,47 @@ class LibraryService:
                     if artist_dir.exists() and not any(artist_dir.iterdir()):
                         artist_dir.rmdir()
                         logger.info(f"Removed empty artist directory: {artist_dir}")
+
+                except PermissionError as e:
+                    logger.error(f"Permission denied deleting {path}: {e}")
+                    return False, f"Permission denied: cannot delete files at {path}"
+                except OSError as e:
+                    logger.error(f"OS error deleting {path}: {e}")
+                    return False, f"Failed to delete files: {e}"
                 except Exception as e:
                     logger.error(f"Failed to delete album files {path}: {e}")
-                    # Don't fail - db record is already deleted
+                    return False, f"Failed to delete files: {e}"
 
-        return True
+        # Step 2: Remove user library symlinks
+        if album_path:
+            symlink = SymlinkService()
+            users = (
+                self.db.query(User.username)
+                .join(user_albums, User.id == user_albums.c.user_id)
+                .filter(user_albums.c.album_id == album_id)
+                .all()
+            )
+            for (username,) in users:
+                symlink.remove_album_links(username, album_path)
+
+        # Step 3: Delete database records only after files are gone
+        try:
+            # Delete tracks first (foreign key constraint)
+            self.db.query(Track).filter(Track.album_id == album_id).delete()
+
+            # Delete album from database
+            self.db.delete(album)
+            self.db.commit()
+
+            logger.info(f"Deleted album from database: {artist_name} - {album_title}")
+            return True, None
+
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Database error deleting album {album_id}: {e}")
+            # Files already deleted - this is bad, log prominently
+            if delete_files and album_path:
+                logger.critical(
+                    f"ORPHAN ALERT: Files deleted but DB record remains for album {album_id}"
+                )
+            return False, f"Database error: {e}"

@@ -7,13 +7,14 @@ from pathlib import Path
 import shutil
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_admin_user
 from app.models.user import User
 from app.models.pending_review import PendingReview, PendingReviewStatus
 from app.schemas.review import ReviewResponse, ApproveRequest, RejectRequest
 from app.services.import_service import ImportService
 from app.integrations.beets import BeetsClient
 from app.integrations.exiftool import ExifToolClient
+from app.config import settings
 
 
 router = APIRouter(prefix="/import/review", tags=["review"])
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/import/review", tags=["review"])
 async def list_pending_review(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """List items pending review."""
     query = db.query(PendingReview).order_by(PendingReview.created_at.desc())
@@ -36,11 +37,25 @@ async def list_pending_review(
     return query.all()
 
 
+@router.get("/failed", response_model=list[ReviewResponse])
+async def list_failed_reviews(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """List reviews that failed during processing."""
+    return (
+        db.query(PendingReview)
+        .filter(PendingReview.status == PendingReviewStatus.FAILED)
+        .order_by(PendingReview.created_at.desc())
+        .all()
+    )
+
+
 @router.get("/{review_id}", response_model=ReviewResponse)
 async def get_review_item(
     review_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Get single review item with details."""
     review = db.query(PendingReview).filter(PendingReview.id == review_id).first()
@@ -55,7 +70,7 @@ async def approve_import(
     review_id: int,
     data: ApproveRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Approve and import pending item.
 
@@ -103,6 +118,12 @@ async def approve_import(
             confidence=1.0
         )
 
+        if not album.artwork_path:
+            artwork = await import_service.fetch_artwork_if_missing(album)
+            if artwork:
+                album.artwork_path = artwork
+                db.commit()
+
         # Update review status
         review.status = PendingReviewStatus.APPROVED
         review.reviewed_by = current_user.id
@@ -120,7 +141,7 @@ async def reject_import(
     review_id: int,
     data: RejectRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Reject and optionally delete pending item."""
     review = db.query(PendingReview).filter(PendingReview.id == review_id).first()
@@ -131,10 +152,22 @@ async def reject_import(
         raise HTTPException(status_code=400, detail="Item already processed")
 
     # Optionally delete files
+    folder = Path(review.path)
     if data.delete_files:
-        folder = Path(review.path)
         if folder.exists():
             shutil.rmtree(folder)
+    else:
+        # Move to rejected folder
+        if folder.exists():
+            rejected_dir = Path(settings.music_import) / "rejected"
+            rejected_dir.mkdir(parents=True, exist_ok=True)
+            rejected_path = rejected_dir / folder.name
+            counter = 1
+            while rejected_path.exists():
+                rejected_path = rejected_dir / f"{folder.name}_{counter}"
+                counter += 1
+            shutil.move(str(folder), str(rejected_path))
+            review.path = str(rejected_path)
 
     review.status = PendingReviewStatus.REJECTED
     review.reviewed_by = current_user.id

@@ -106,6 +106,15 @@ def process_import(self, folder_path: str):
 
                 # Create review entry
                 from app.models.pending_review import PendingReview
+                tracks_metadata = await exiftool.get_album_metadata(review_path)
+                quality_info = None
+                if tracks_metadata:
+                    first = tracks_metadata[0]
+                    quality_info = {
+                        "sample_rate": first.get("sample_rate"),
+                        "bit_depth": first.get("bit_depth"),
+                        "format": first.get("format")
+                    }
                 file_count = len([
                     f for f in review_path.iterdir()
                     if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
@@ -117,6 +126,9 @@ def process_import(self, folder_path: str):
                     suggested_album=identification.get("album"),
                     beets_confidence=confidence,
                     track_count=file_count,
+                    quality_info=quality_info,
+                    source="import",
+                    source_url="",
                     status="pending"
                 )
                 db.add(review)
@@ -133,7 +145,7 @@ def process_import(self, folder_path: str):
                 return {"status": "review", "confidence": confidence, "review_id": review.id}
 
             # Check duplicates
-            existing = await import_service.find_duplicate(
+            existing = import_service.find_duplicate(
                 identification.get("artist", ""),
                 identification.get("album", "")
             )
@@ -226,12 +238,16 @@ def process_review(review_id: int, action: str, metadata: dict = None):
             return {"status": "rejected", "review_id": review_id}
 
         # Process import (approve or manual)
+        library_path = None  # Track for rollback
+
         async def run():
+            nonlocal library_path
             from app.integrations.beets import BeetsClient
             from app.integrations.exiftool import ExifToolClient
             from app.services.import_service import ImportService
             from app.integrations.plex import trigger_plex_scan
             from app.websocket import broadcast_import_complete
+            from app.config import settings
 
             beets = BeetsClient()
             exiftool = ExifToolClient()
@@ -260,6 +276,12 @@ def process_review(review_id: int, action: str, metadata: dict = None):
                 confidence=1.0  # Manual review = full confidence
             )
 
+            # Fetch artwork if missing
+            if not album.artwork_path:
+                artwork = await import_service.fetch_artwork_if_missing(album)
+                if artwork:
+                    album.artwork_path = artwork
+
             # Update review record
             review.status = "approved"
             db.commit()
@@ -277,11 +299,36 @@ def process_review(review_id: int, action: str, metadata: dict = None):
 
             return {"status": "imported", "album_id": album.id}
 
-        return asyncio.run(run())
+        try:
+            return asyncio.run(run())
+        except Exception as e:
+            logger.error(f"Review processing failed: {e}")
 
-    except Exception as e:
-        logger.error(f"Review processing failed: {e}")
-        return {"status": "error", "error": str(e)}
+            # Mark review as FAILED, not pending - prevents retry with already-moved files
+            from datetime import datetime
+            review.status = "failed"
+            review.error_message = str(e)[:500]  # Truncate long errors
+            review.reviewed_at = datetime.utcnow()
+
+            # Try to move files to failed folder for manual recovery
+            if library_path and library_path.exists():
+                try:
+                    from app.config import settings
+                    failed_dir = Path(settings.music_import) / "failed"
+                    failed_dir.mkdir(parents=True, exist_ok=True)
+                    failed_path = failed_dir / library_path.name
+                    counter = 1
+                    while failed_path.exists():
+                        failed_path = failed_dir / f"{library_path.name}_{counter}"
+                        counter += 1
+                    shutil.move(str(library_path), str(failed_path))
+                    review.path = str(failed_path)
+                    logger.info(f"Moved failed import to: {failed_path}")
+                except Exception as move_error:
+                    logger.error(f"Could not move failed files: {move_error}")
+
+            db.commit()
+            return {"status": "failed", "error": str(e)}
 
     finally:
         db.close()

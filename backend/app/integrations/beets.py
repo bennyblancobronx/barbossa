@@ -40,6 +40,10 @@ class BeetsClient:
             import beets
             from beets import config as beets_config
             from beets.autotag import mb
+            if self.config_path.exists():
+                beets_config.read(str(self.config_path))
+            else:
+                return False
             return True
         except ImportError:
             logger.info("Beets Python API not available, using CLI fallback")
@@ -201,10 +205,16 @@ class BeetsClient:
 
         await self._run_command(cmd, allow_failure=True)
 
-        return await self._find_imported_path(
-            artist or self._extract_artist_from_path(path),
-            album or path.name
-        )
+        try:
+            return await self._find_imported_path(
+                artist or self._extract_artist_from_path(path),
+                album or path.name
+            )
+        except BeetsError:
+            fallback = self._find_by_track_filename(path)
+            if fallback:
+                return fallback
+            raise
 
     async def import_with_metadata(
         self,
@@ -438,6 +448,33 @@ class BeetsClient:
             return expected
 
         raise BeetsError(f"Could not find imported album: {artist} - {album}")
+
+    def _find_by_track_filename(self, source_path: Path) -> Optional[Path]:
+        """Find imported album by matching a track filename in library."""
+        if not source_path.exists():
+            return None
+
+        audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff", ".alac"}
+        source_files = [
+            f for f in source_path.iterdir()
+            if f.is_file() and f.suffix.lower() in audio_extensions
+        ]
+        if not source_files:
+            return None
+
+        target_name = source_files[0].name
+
+        for artist_dir in self.library_path.iterdir():
+            if not artist_dir.is_dir():
+                continue
+            for album_dir in artist_dir.iterdir():
+                if not album_dir.is_dir():
+                    continue
+                candidate = album_dir / target_name
+                if candidate.exists():
+                    return album_dir
+
+        return None
 
     def _parse_folder_name(self, name: str) -> Dict[str, Any]:
         """Parse folder name in streamrip format.

@@ -14,6 +14,7 @@ console = Console()
 def create_user(
     username: str = typer.Argument(..., help="Username for new user"),
     password: str = typer.Option(None, "--password", "-p", help="Password (will prompt if not provided)"),
+    admin: bool = typer.Option(False, "--admin", help="Create as admin user"),
 ):
     """Create a new user."""
     from app.database import SessionLocal
@@ -39,7 +40,7 @@ def create_user(
                 raise typer.Exit(1)
 
         # Create user
-        user = auth_service.create_user(username, password)
+        user = auth_service.create_user(username, password, is_admin=admin)
 
         console.print(f"[green]User '{username}' created successfully[/green]")
     finally:
@@ -307,6 +308,13 @@ def import_album(
                 confidence=confidence
             )
 
+            # Fetch artwork if missing
+            if imported and not imported.artwork_path:
+                artwork = await import_service.fetch_artwork_if_missing(imported)
+                if artwork:
+                    imported.artwork_path = artwork
+                    db.commit()
+
             return imported
 
         result = asyncio.run(do_import())
@@ -331,6 +339,7 @@ def import_album(
 def seed_data(
     username: str = typer.Option("admin", "--user", "-u", help="Username"),
     password: str = typer.Option(None, "--pass", "-p", help="Password"),
+    admin: bool = typer.Option(True, "--admin/--no-admin", help="Create as admin user"),
 ):
     """Seed database with initial user."""
     from app.database import SessionLocal
@@ -355,7 +364,7 @@ def seed_data(
 
         # Create user
         auth_service = AuthService(db)
-        user = auth_service.create_user(username, password)
+        user = auth_service.create_user(username, password, is_admin=admin)
 
         console.print(f"[green]User '{username}' created successfully[/green]")
     finally:

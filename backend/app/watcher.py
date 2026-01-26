@@ -26,12 +26,13 @@ AUDIO_EXTENSIONS = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff", ".alac"}
 class ImportWatcher(FileSystemEventHandler):
     """Watches import folder for new albums."""
 
-    def __init__(self):
+    def __init__(self, loop: asyncio.AbstractEventLoop):
         self.pending_path = Path(settings.music_import) / "pending"
         self.review_path = Path(settings.music_import) / "review"
         self.processing = set()  # Paths currently being processed
         self.debounce_seconds = 30  # Wait for folder to be complete
         self.auto_import_confidence = 0.85  # Minimum confidence for auto-import
+        self.loop = loop
 
         # Create directories if needed
         self.pending_path.mkdir(parents=True, exist_ok=True)
@@ -42,7 +43,7 @@ class ImportWatcher(FileSystemEventHandler):
         if isinstance(event, DirCreatedEvent):
             # New folder - potential album
             # Schedule async processing
-            asyncio.get_event_loop().call_soon_threadsafe(
+            self.loop.call_soon_threadsafe(
                 lambda: asyncio.create_task(self._process_folder(event.src_path))
             )
 
@@ -181,6 +182,20 @@ class ImportWatcher(FileSystemEventHandler):
             if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
         ])
 
+        quality_info = None
+        try:
+            exiftool = ExifToolClient()
+            tracks_metadata = await exiftool.get_album_metadata(review_dest)
+            if tracks_metadata:
+                first = tracks_metadata[0]
+                quality_info = {
+                    "sample_rate": first.get("sample_rate"),
+                    "bit_depth": first.get("bit_depth"),
+                    "format": first.get("format")
+                }
+        except Exception:
+            quality_info = None
+
         db = SessionLocal()
         try:
             review = PendingReview(
@@ -189,6 +204,9 @@ class ImportWatcher(FileSystemEventHandler):
                 suggested_album=identification.get("album"),
                 beets_confidence=identification.get("confidence", 0),
                 track_count=file_count,
+                quality_info=quality_info,
+                source="import",
+                source_url="",
                 notes=note,
                 status="pending"
             )
@@ -213,7 +231,8 @@ class ImportWatcher(FileSystemEventHandler):
 
 def start_watcher() -> Observer:
     """Start the watch folder observer."""
-    event_handler = ImportWatcher()
+    loop = asyncio.get_event_loop()
+    event_handler = ImportWatcher(loop)
     observer = Observer()
 
     watch_path = event_handler.pending_path

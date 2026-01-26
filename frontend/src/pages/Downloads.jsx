@@ -198,6 +198,7 @@ function DownloadItem({ download, onCancel }) {
     processing: 'text-primary',
     importing: 'text-primary',
     complete: 'text-success',
+    duplicate: 'text-warning',
     failed: 'text-error',
     cancelled: 'text-muted',
     pending_review: 'text-warning'
@@ -231,6 +232,12 @@ function DownloadItem({ download, onCancel }) {
         {download.status === 'pending_review' && (
           <span className="download-review text-warning">
             Needs manual review - low confidence match
+          </span>
+        )}
+
+        {download.status === 'duplicate' && (
+          <span className="download-review text-warning">
+            Duplicate detected - kept existing album
           </span>
         )}
 

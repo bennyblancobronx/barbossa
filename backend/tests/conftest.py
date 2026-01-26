@@ -53,10 +53,25 @@ def test_user(db):
 
 
 @pytest.fixture
+def admin_user(db):
+    """Create an admin user."""
+    auth = AuthService(db)
+    return auth.create_user("adminuser", "adminpass", is_admin=True)
+
+
+@pytest.fixture
 def auth_headers(db, test_user):
     """Get authorization headers for test user."""
     auth = AuthService(db)
     token = auth.create_token(test_user.id)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def admin_auth_headers(db, admin_user):
+    """Get authorization headers for admin user."""
+    auth = AuthService(db)
+    token = auth.create_token(admin_user.id)
     return {"Authorization": f"Bearer {token}"}
 
 

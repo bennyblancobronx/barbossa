@@ -6,6 +6,8 @@ import asyncio
 from typing import Dict, Set, Optional
 from datetime import datetime
 from fastapi import WebSocket
+from app.database import SessionLocal
+from app.models.user import User
 
 
 class ConnectionManager:
@@ -225,5 +227,13 @@ async def broadcast_review_needed(
         "confidence": confidence,
         "timestamp": datetime.utcnow().isoformat()
     }
-    # TODO: Implement admin-specific broadcast. For now, broadcast to all.
-    await manager.broadcast_all(message)
+    db = SessionLocal()
+    try:
+        admin_ids = [
+            u.id for u in db.query(User.id).filter(User.is_admin == True).all()
+        ]
+    finally:
+        db.close()
+
+    for admin_id in admin_ids:
+        await manager.send_to_user(admin_id, message)

@@ -68,6 +68,8 @@ def download_qobuz_task(
                 quality,
                 progress_callback
             )
+            if album is None:
+                return {"status": "duplicate"}
             return {"status": "complete", "album_id": album.id}
         except Exception as e:
             raise e
@@ -145,6 +147,8 @@ def download_url_task(
                 url,
                 progress_callback
             )
+            if album is None:
+                return {"status": "duplicate"}
             return {"status": "complete", "album_id": album.id}
         except Exception as e:
             raise e

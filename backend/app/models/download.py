@@ -11,6 +11,7 @@ class DownloadStatus(str, enum.Enum):
     DOWNLOADING = "downloading"
     IMPORTING = "importing"
     COMPLETE = "complete"
+    DUPLICATE = "duplicate"
     FAILED = "failed"
     CANCELLED = "cancelled"
     PENDING_REVIEW = "pending_review"  # Low beets confidence, needs manual review

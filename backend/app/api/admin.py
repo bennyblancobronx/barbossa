@@ -1,13 +1,14 @@
 """Admin API endpoints for user management, health, and backups."""
 from typing import Optional, List
 from datetime import datetime
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from passlib.context import CryptContext
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_admin_user
 from app.models.user import User
 from app.models.artist import Artist
 from app.models.album import Album
@@ -16,6 +17,7 @@ from app.models.activity import ActivityLog
 from app.models.backup_history import BackupHistory
 from app.schemas.user import UserCreate, UserResponse
 from app.services.activity import ActivityService
+from app.config import settings
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -25,7 +27,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 @router.get("/users", response_model=list[UserResponse])
 async def list_users(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """List all users."""
     return db.query(User).order_by(User.username).all()
@@ -35,7 +37,7 @@ async def list_users(
 async def create_user(
     data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Create new user."""
     existing = db.query(User).filter(User.username == data.username).first()
@@ -45,6 +47,7 @@ async def create_user(
     user = User(
         username=data.username,
         password_hash=pwd_context.hash(data.password),
+        is_admin=bool(data.is_admin),
     )
     db.add(user)
     db.commit()
@@ -57,7 +60,7 @@ async def create_user(
 async def get_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Get user by ID."""
     user = db.query(User).filter(User.id == user_id).first()
@@ -71,7 +74,7 @@ async def update_user(
     user_id: int,
     password: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Update user."""
     user = db.query(User).filter(User.id == user_id).first()
@@ -90,7 +93,7 @@ async def update_user(
 async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Delete user."""
     user = db.query(User).filter(User.id == user_id).first()
@@ -109,7 +112,7 @@ async def delete_user(
 @router.post("/rescan")
 async def rescan_library(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Trigger library rescan."""
     from app.tasks.maintenance import scan_library
@@ -124,7 +127,7 @@ async def rescan_library(
 @router.get("/health")
 async def library_health(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Get library health report."""
     # Count totals
@@ -179,7 +182,7 @@ async def list_activity(
     offset: int = Query(0, ge=0),
     action: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Get all activity logs (admin only)."""
     service = ActivityService(db)
@@ -211,7 +214,7 @@ async def list_activity(
 @router.post("/integrity/verify")
 async def verify_integrity(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Trigger integrity verification task."""
     from app.tasks.maintenance import verify_integrity as verify_task
@@ -227,7 +230,7 @@ async def verify_integrity(
 async def backup_history(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Get backup history."""
     backups = (
@@ -260,14 +263,23 @@ async def backup_history(
 async def trigger_backup(
     destination: str = Query(..., description="Backup destination path"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin_user)
 ):
     """Trigger manual backup."""
     from app.tasks.maintenance import run_backup
 
+    base = Path(settings.music_database).resolve()
+    dest_path = Path(destination)
+    if not dest_path.is_absolute():
+        dest_path = base / dest_path
+
+    dest_path = dest_path.resolve()
+    if dest_path != base and base not in dest_path.parents:
+        raise HTTPException(status_code=400, detail=f"Destination must be under {base}")
+
     # Create backup history record
     backup = BackupHistory(
-        destination=destination,
+        destination=str(dest_path),
         destination_type="local",
         status="running",
         started_at=datetime.utcnow()

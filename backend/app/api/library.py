@@ -193,14 +193,19 @@ def get_album_tracks(
 @router.delete("/albums/{album_id}", response_model=MessageResponse)
 def delete_album(
     album_id: int,
+    delete_files: bool = Query(True, description="Also delete files from disk"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Delete album from library."""
     service = LibraryService(db)
 
-    if not service.delete_album(album_id):
-        raise HTTPException(status_code=404, detail="Album not found")
+    success, error = service.delete_album(album_id, delete_files)
+
+    if not success:
+        if error == "Album not found":
+            raise HTTPException(status_code=404, detail=error)
+        raise HTTPException(status_code=500, detail=error)
 
     return MessageResponse(message="Album deleted")
 

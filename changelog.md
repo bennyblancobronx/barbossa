@@ -1,5 +1,74 @@
 # Changelog
 
+## [0.1.69] - 2026-01-26
+
+### TL;DR
+- Fixed all e2e tests: 20 CLI import + review API tests now passing
+- Fixed FastAPI route ordering bug in /failed endpoint
+- Total: 162 tests passing
+
+### Fixed
+- **Review API route order**: Moved /failed endpoint before /{review_id} to prevent "failed" being captured as review_id
+- **CLI e2e tests**: Fixed typer runner import and invocation pattern (admin prefix)
+- **CLI e2e tests**: Fixed mock patch locations for imports inside function scope
+
+### Added
+- tests/test_cli_import_e2e.py - 7 comprehensive CLI import tests with mocks
+- tests/test_review_api_e2e.py - 13 review API flow tests (approve, reject, failed, 404s)
+
+---
+
+## [0.1.68] - 2026-01-26
+
+### TL;DR
+- Implemented all P0/P1 remediation fixes: safe deletion, CLI artwork, import rollback, review failure handling
+- Added 13 new tests, all 142 tests passing
+
+### Fixed
+- **P0 File Deletion**: delete_album() now returns (success, error) tuple; deletes files FIRST before DB record; returns False with error message if file deletion fails, preserving DB record for retry
+- **P1 CLI Artwork**: CLI import now calls fetch_artwork_if_missing() after successful import
+- **P1 Import Rollback**: _import_album() in download.py now has try/except that moves files to /import/failed/ on DB error instead of leaving orphans
+- **P1 Review Retry Bug**: process_review task marks review as "failed" (not "pending") on error, preventing retry loops with already-moved files
+
+### Added
+- PendingReviewStatus.FAILED status for failed review imports
+- GET /api/import/review/failed endpoint to list failed reviews
+- tests/test_deletion.py - 8 tests for delete_album return values and API
+- tests/test_review_flow.py - 2 tests for review status handling
+- tests/test_import_rollback.py - 3 tests verifying rollback code structure
+
+### Changed
+- LibraryService.delete_album() signature: now returns tuple[bool, str|None] instead of bool
+- DELETE /api/albums/{id} now accepts delete_files query param and returns proper 500 on file errors
+
+---
+
+## [0.1.67] - 2026-01-26
+
+### TL;DR
+- Added admin role enforcement, import pipeline fixes, beets config provisioning, artwork recovery, duplicate download status, safer export/backup paths, review reject handling, and test reliability fixes.
+
+### Added
+- Admin role flag on users with admin-only guards for admin and review endpoints
+- Duplicate download status handling with UI messaging
+- Beets config provisioning at startup when missing
+
+### Fixed
+- Auth now returns 401 for missing credentials
+- Import task await bug and watcher scheduling on the main event loop
+- Review records now capture source and basic quality info
+- Review rejects move albums into the rejected folder when not deleting
+- Artist sort names are now populated for stable ordering
+- Replace-album refreshes import history and checksums
+- Beets API path now loads config when present, else falls back to CLI
+- Artwork recovery after download/import approvals
+- Deleting albums now removes user library links
+- Export and backup destinations constrained to configured roots
+- Qobuz tests skip when host is not reachable
+- Alembic 006 migration now safely skips drop if is_admin is missing
+- Beets import now falls back to locating album by track filename when path lookup fails
+- Delete now removes SMB .smbdelete* files before rmtree
+
 ## [0.1.62] - 2026-01-25
 
 ### Fixed - CLI and GUI Import Flow

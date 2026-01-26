@@ -17,7 +17,9 @@ from app.services.import_service import ImportService, ImportError
 
 class DuplicateError(Exception):
     """Album already exists with equal or better quality."""
-    pass
+    def __init__(self, existing_id: int):
+        self.existing_id = existing_id
+        super().__init__(f"Album already exists with equal or better quality: {existing_id}")
 
 
 class NeedsReviewError(Exception):
@@ -118,6 +120,12 @@ class DownloadService:
             download.result_review_id = e.review_id
             self.db.commit()
             raise
+        except DuplicateError as e:
+            download.status = DownloadStatus.DUPLICATE.value
+            download.error_message = str(e)
+            download.result_album_id = e.existing_id
+            self.db.commit()
+            return None
 
         except (StreamripError, BeetsError, ImportError) as e:
             download.status = DownloadStatus.FAILED.value
@@ -192,6 +200,12 @@ class DownloadService:
             download.result_review_id = e.review_id
             self.db.commit()
             raise
+        except DuplicateError as e:
+            download.status = DownloadStatus.DUPLICATE.value
+            download.error_message = str(e)
+            download.result_album_id = e.existing_id
+            self.db.commit()
+            return None
 
         except (YtdlpError, BeetsError, ImportError) as e:
             download.status = DownloadStatus.FAILED.value
@@ -251,9 +265,7 @@ class DownloadService:
             old_quality = self._get_existing_quality(existing)
 
             if new_quality <= old_quality:
-                raise DuplicateError(
-                    f"Album already exists with equal or better quality: {existing.id}"
-                )
+                raise DuplicateError(existing.id)
 
             # Replace with higher quality
             # First, tag via beets
@@ -262,27 +274,76 @@ class DownloadService:
             # Re-extract after beets processing
             tracks_metadata = await self.exiftool.get_album_metadata(library_path)
 
-            return await self.import_service.replace_album(
+            album = await self.import_service.replace_album(
                 existing.id,
                 library_path,
                 tracks_metadata
             )
+            await self._ensure_artwork(album)
+            return album
 
         # Tag via beets (moves to library)
         library_path = await self.beets.import_album(path, move=True)
+        original_path = path  # Keep reference for potential rollback
 
-        # Re-extract quality metadata after beets processing
-        tracks_metadata = await self.exiftool.get_album_metadata(library_path)
+        try:
+            # Re-extract quality metadata after beets processing
+            tracks_metadata = await self.exiftool.get_album_metadata(library_path)
 
-        # Import to database
-        return await self.import_service.import_album(
-            path=library_path,
-            tracks_metadata=tracks_metadata,
-            source=source,
-            source_url=source_url,
-            imported_by=user_id,
-            confidence=confidence
-        )
+            # Import to database
+            album = await self.import_service.import_album(
+                path=library_path,
+                tracks_metadata=tracks_metadata,
+                source=source,
+                source_url=source_url,
+                imported_by=user_id,
+                confidence=confidence
+            )
+            await self._ensure_artwork(album)
+            return album
+
+        except Exception as e:
+            # ROLLBACK: Move files to failed folder for recovery
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Import failed after file move, attempting rollback: {e}")
+
+            try:
+                if library_path.exists():
+                    # Move to failed imports folder instead of back to downloads
+                    failed_dir = Path(settings.music_import) / "failed"
+                    failed_dir.mkdir(parents=True, exist_ok=True)
+
+                    failed_path = failed_dir / library_path.name
+                    counter = 1
+                    while failed_path.exists():
+                        failed_path = failed_dir / f"{library_path.name}_{counter}"
+                        counter += 1
+
+                    shutil.move(str(library_path), str(failed_path))
+                    logger.info(f"Moved failed import to: {failed_path}")
+
+                    # Clean up empty directories in library
+                    artist_dir = library_path.parent
+                    if artist_dir.exists() and not any(artist_dir.iterdir()):
+                        artist_dir.rmdir()
+            except Exception as rollback_error:
+                logger.critical(
+                    f"CRITICAL: Rollback failed! Orphaned files at {library_path}. "
+                    f"Rollback error: {rollback_error}"
+                )
+
+            raise  # Re-raise the original exception
+
+    async def _ensure_artwork(self, album: Album) -> None:
+        """Fetch artwork if missing and update DB."""
+        if album.artwork_path:
+            return
+
+        artwork = await self.import_service.fetch_artwork_if_missing(album)
+        if artwork:
+            album.artwork_path = artwork
+            self.db.commit()
 
     async def _move_to_review(
         self,

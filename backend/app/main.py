@@ -1,6 +1,8 @@
 """Barbossa API - Main application entry point."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+import shutil
 from app.api import api_router, ws_router
 from app.api.health import router as health_router
 from app import __version__
@@ -37,6 +39,17 @@ app.include_router(health_router)
 
 # Include WebSocket routes (not under /api prefix)
 app.include_router(ws_router)
+
+
+@app.on_event("startup")
+def ensure_beets_config():
+    """Ensure beets config is present in /config."""
+    config_dir = Path("/config")
+    config_dir.mkdir(parents=True, exist_ok=True)
+    target = config_dir / "beets.yaml"
+    source = Path(__file__).resolve().parents[1] / "config" / "beets.yaml"
+    if not target.exists() and source.exists():
+        shutil.copy2(source, target)
 
 
 @app.get("/")

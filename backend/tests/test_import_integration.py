@@ -60,9 +60,10 @@ class TestDeleteAlbum:
 
             # Delete album
             service = LibraryService(db)
-            result = service.delete_album(album_id, delete_files=True)
+            success, error = service.delete_album(album_id, delete_files=True)
 
-            assert result is True
+            assert success is True
+            assert error is None
 
             # Verify files are deleted
             assert not album_dir.exists()
@@ -224,6 +225,70 @@ class TestImportService:
             result = service._find_artwork(tmp_path)
 
             assert result is None
+        finally:
+            shutil.rmtree(tmp_path, ignore_errors=True)
+
+    def test_get_or_create_artist_sets_sort_name(self, db):
+        """Test sort_name is populated on artist creation."""
+        service = ImportService(db)
+        artist = service._get_or_create_artist("The Beatles", Path("/tmp"))
+        assert artist.sort_name == "beatles"
+
+    def test_replace_album_updates_history_and_checksums(self, db):
+        """Test replace_album refreshes import history and track checksums."""
+        from app.models.artist import Artist
+        from app.models.album import Album
+        from app.models.import_history import ImportHistory
+
+        tmp_path = Path(tempfile.mkdtemp())
+        try:
+            artist = Artist(
+                name="Test Artist",
+                normalized_name="test artist",
+                sort_name="test artist",
+                path=str(tmp_path / "Test Artist")
+            )
+            db.add(artist)
+            db.flush()
+
+            album = Album(
+                artist_id=artist.id,
+                title="Test Album",
+                normalized_title="test album",
+                path=str(tmp_path / "Old Album"),
+                total_tracks=0,
+                available_tracks=0
+            )
+            db.add(album)
+            db.commit()
+
+            new_dir = tmp_path / "Test Artist" / "Test Album"
+            new_dir.mkdir(parents=True)
+            track_path = new_dir / "01 - Track One.flac"
+            track_path.write_text("fake audio")
+
+            tracks_metadata = [{
+                "title": "Track One",
+                "track_number": 1,
+                "duration": 10,
+                "path": str(track_path),
+                "sample_rate": 44100,
+                "bit_depth": 16,
+                "bitrate": None,
+                "channels": 2,
+                "file_size": track_path.stat().st_size,
+                "format": "FLAC",
+                "is_lossy": False
+            }]
+
+            service = ImportService(db)
+            updated = service.replace_album(album.id, new_dir, tracks_metadata)
+
+            histories = db.query(ImportHistory).filter(ImportHistory.album_id == album.id).all()
+            assert len(histories) == 1
+            assert updated.tracks.count() == 1
+            track = updated.tracks.first()
+            assert track.checksum
         finally:
             shutil.rmtree(tmp_path, ignore_errors=True)
 

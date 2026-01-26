@@ -273,6 +273,7 @@ async def delete_download(
 
     deletable_statuses = [
         DownloadStatus.COMPLETE.value,
+        DownloadStatus.DUPLICATE.value,
         DownloadStatus.FAILED.value,
         DownloadStatus.CANCELLED.value
     ]

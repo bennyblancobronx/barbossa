@@ -177,8 +177,9 @@ class ImportService:
 
         old_path = Path(album.path) if album.path else None
 
-        # Delete old tracks from database
+        # Delete old tracks and import history from database
         self.db.query(Track).filter(Track.album_id == album_id).delete()
+        self.db.query(ImportHistory).filter(ImportHistory.album_id == album_id).delete()
 
         # Update album path
         album.path = str(new_path)
@@ -214,6 +215,22 @@ class ImportService:
                 )
             )
             self.db.add(track)
+            self.db.flush()
+
+            track_path = Path(track.path) if track.path else None
+            if track_path and track_path.exists():
+                track.checksum = generate_checksum(track_path)
+
+            history = ImportHistory(
+                artist_normalized=album.artist.normalized_name if album.artist else normalize_text(album.title),
+                album_normalized=album.normalized_title,
+                track_normalized=normalize_text(track.title),
+                source=album.source or "import",
+                quality_score=quality_score(meta.get("sample_rate"), meta.get("bit_depth")),
+                track_id=track.id,
+                album_id=album.id
+            )
+            self.db.add(history)
 
         self.db.commit()
 
@@ -281,6 +298,7 @@ class ImportService:
     def _get_or_create_artist(self, name: str, path: Path) -> Artist:
         """Find or create artist."""
         normalized = normalize_text(name)
+        sort_name = self._normalize_sort_name(name)
 
         artist = self.db.query(Artist).filter(
             Artist.normalized_name == normalized
@@ -290,12 +308,23 @@ class ImportService:
             artist = Artist(
                 name=name,
                 normalized_name=normalized,
+                sort_name=sort_name,
                 path=str(path)
             )
             self.db.add(artist)
             self.db.flush()
+        elif not artist.sort_name:
+            artist.sort_name = sort_name
+            self.db.add(artist)
 
         return artist
+
+    def _normalize_sort_name(self, name: str) -> str:
+        """Generate a sort-friendly name for artist ordering."""
+        normalized = normalize_text(name)
+        if normalized.startswith("the "):
+            return normalized[4:]
+        return normalized
 
     def _find_artwork(self, path: Path) -> Optional[str]:
         """Find album artwork in folder."""

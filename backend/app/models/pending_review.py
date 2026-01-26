@@ -10,6 +10,7 @@ class PendingReviewStatus:
     APPROVED = "approved"
     REJECTED = "rejected"
     MANUAL = "manual"
+    FAILED = "failed"  # Import failed after files were moved
 
 
 class PendingReview(Base):

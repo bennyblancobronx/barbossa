@@ -33,6 +33,7 @@ class ExportService:
         include_playlist: bool = False
     ) -> Export:
         """Create export job."""
+        destination = self._resolve_destination(destination)
         # Count user's hearted albums
         album_count = self.db.query(user_albums).filter(
             user_albums.c.user_id == user_id
@@ -52,6 +53,19 @@ class ExportService:
         self.db.refresh(export)
 
         return export
+
+    def _resolve_destination(self, destination: str) -> str:
+        """Validate and normalize export destination."""
+        base = Path(settings.music_export).resolve()
+        dest_path = Path(destination)
+        if not dest_path.is_absolute():
+            dest_path = base / dest_path
+
+        dest_path = dest_path.resolve()
+        if dest_path != base and base not in dest_path.parents:
+            raise ExportError(f"Destination must be under {base}")
+
+        return str(dest_path)
 
     async def run_export(
         self,

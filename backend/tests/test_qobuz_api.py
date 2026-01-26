@@ -1,5 +1,6 @@
 """Tests for Qobuz API client."""
 import pytest
+import socket
 from app.config import get_settings
 from app.integrations.qobuz_api import (
     get_qobuz_api,
@@ -26,9 +27,18 @@ def has_qobuz_app_credentials() -> bool:
     return bool(app_id)
 
 
+def can_reach_qobuz() -> bool:
+    """Check if Qobuz host is reachable (DNS resolution)."""
+    try:
+        socket.gethostbyname("www.qobuz.com")
+        return True
+    except Exception:
+        return False
+
+
 # Skip marker for tests requiring full Qobuz setup
 requires_qobuz_setup = pytest.mark.skipif(
-    not (has_qobuz_credentials() and has_qobuz_app_credentials()),
+    not (has_qobuz_credentials() and has_qobuz_app_credentials() and can_reach_qobuz()),
     reason="Qobuz credentials or app_id not configured (run 'rip config --qobuz' to set up)"
 )
 
@@ -198,6 +208,8 @@ async def test_caching_returns_same_data():
 @pytest.mark.asyncio
 async def test_missing_credentials_raises_error():
     """Test that missing credentials raise appropriate error."""
+    if not can_reach_qobuz():
+        pytest.skip("Qobuz host not reachable")
     from app.integrations.qobuz_api import QobuzAPI
 
     # Create fresh instance (not singleton)
