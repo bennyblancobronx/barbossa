@@ -75,6 +75,26 @@ def download_qobuz_task(
             )
             if album is None:
                 return {"status": "duplicate"}
+
+            # Broadcast download completion and library update
+            from app.models.download import Download
+            download = db.query(Download).filter(Download.id == download_id).first()
+            user_id = download.user_id if download else None
+
+            if user_id:
+                try:
+                    from app.websocket import broadcast_download_complete, broadcast_library_update
+                    await broadcast_download_complete(
+                        download_id=download_id,
+                        user_id=user_id,
+                        album_id=album.id,
+                        album_title=album.title,
+                        artist_name=album.artist.name if album.artist else "Unknown"
+                    )
+                    await broadcast_library_update("album", album.id, "created")
+                except Exception:
+                    pass  # WebSocket not available
+
             return {"status": "complete", "album_id": album.id}
         except Exception as e:
             raise e
@@ -159,6 +179,26 @@ def download_url_task(
             )
             if album is None:
                 return {"status": "duplicate"}
+
+            # Broadcast download completion and library update
+            from app.models.download import Download
+            download = db.query(Download).filter(Download.id == download_id).first()
+            user_id = download.user_id if download else None
+
+            if user_id:
+                try:
+                    from app.websocket import broadcast_download_complete, broadcast_library_update
+                    await broadcast_download_complete(
+                        download_id=download_id,
+                        user_id=user_id,
+                        album_id=album.id,
+                        album_title=album.title,
+                        artist_name=album.artist.name if album.artist else "Unknown"
+                    )
+                    await broadcast_library_update("album", album.id, "created")
+                except Exception:
+                    pass  # WebSocket not available
+
             return {"status": "complete", "album_id": album.id}
         except Exception as e:
             raise e

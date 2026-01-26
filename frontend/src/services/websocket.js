@@ -1,6 +1,7 @@
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
 import { useDownloadStore } from '../stores/downloads'
+import { queryClient } from '../queryClient'
 
 let socket = null
 let reconnectTimeout = null
@@ -66,8 +67,12 @@ function handleMessage(data) {
     case 'download:complete':
       useNotificationStore.getState().addNotification({
         type: 'success',
-        message: `Download complete: ${data.title || 'Album'}`
+        message: `Download complete: ${data.album_title || data.title || 'Album'}`
       })
+      // Refresh library to show new album
+      queryClient.invalidateQueries('albums')
+      queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('downloads')
       break
 
     case 'download:error':
@@ -104,11 +109,16 @@ function handleMessage(data) {
 function handleLibraryUpdate(data) {
   const { addNotification } = useNotificationStore.getState()
 
+  // Always invalidate library queries to refresh data
+  queryClient.invalidateQueries('albums')
+  queryClient.invalidateQueries('user-library')
+
   switch (data.action) {
+    case 'created':
     case 'new_album':
       addNotification({
-        type: 'info',
-        message: `New album: ${data.artist} - ${data.title}`
+        type: 'success',
+        message: `New album added to library`
       })
       break
 
@@ -117,6 +127,10 @@ function handleLibraryUpdate(data) {
         type: 'success',
         message: `Quality upgrade: ${data.title}`
       })
+      break
+
+    case 'deleted':
+      // No notification needed, just refresh
       break
   }
 }

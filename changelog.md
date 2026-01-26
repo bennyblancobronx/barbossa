@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.80] - 2026-01-26
+
+### TL;DR
+- Library now auto-refreshes when downloads complete - no more manual refresh needed
+
+### Fixed
+- **downloads.py tasks**: Now broadcasts download:complete and library:updated via WebSocket
+- **websocket.js**: Invalidates react-query cache on library updates to auto-refresh UI
+- **queryClient.js**: New shared QueryClient instance for cache invalidation from WebSocket
+- **index.jsx**: Uses shared queryClient instead of creating inline
+
+### Behavior Change
+- When a download finishes, library pages automatically refresh to show new album
+- No more need to manually refresh browser to see downloaded music
+
+---
+
 ## [0.1.79] - 2026-01-26
 
 ### TL;DR
