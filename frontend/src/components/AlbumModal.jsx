@@ -7,7 +7,10 @@ export default function AlbumModal({ album, onClose }) {
   const { data, isLoading } = useQuery(
     ['album', album.id],
     () => api.getAlbum(album.id).then(r => r.data),
-    { initialData: album }
+    {
+      initialData: album,
+      staleTime: 0,  // Always refetch to get tracks
+    }
   )
 
   const play = usePlayerStore(state => state.play)

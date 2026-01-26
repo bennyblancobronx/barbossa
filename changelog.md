@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.82] - 2026-01-26
+
+### TL;DR
+- Fixed tracks not showing in album modal - staleTime was preventing refetch
+
+### Fixed
+- **AlbumModal.jsx**: Added staleTime: 0 to force refetch of album details with tracks
+- Global staleTime of 5 minutes was caching album data without tracks
+
+---
+
 ## [0.1.81] - 2026-01-26
 
 ### TL;DR
