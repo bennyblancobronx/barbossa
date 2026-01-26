@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.1.89] - 2026-01-26
+
+### TL;DR
+- Clicking artwork navigates to album page; only pencil icon edits artwork
+
+### Changed
+- **ArtistCard.jsx**: Removed click-on-artwork edit behavior (navigates to albums instead)
+- **AlbumCard.jsx**: Removed click-on-artwork edit behavior (opens modal instead)
+- **techguide.md**: Added artist artwork endpoints documentation
+
+---
+
+## [0.1.88] - 2026-01-26
+
+### TL;DR
+- Added API endpoints to fetch missing artist artwork from Qobuz
+
+### Added
+- **artwork.py**: POST /api/artists/{id}/artwork/fetch - fetch single artist image from Qobuz
+- **artwork.py**: POST /api/artwork/artists/fetch-all - batch fetch all missing artist images
+
+### Tested
+- Fetched artwork for Nine Inch Nails (1920x1283) and Post Malone (1080x1080)
+- John & Mary and Honestav not found on Qobuz (expected - less popular artists)
+
+---
+
+## [0.1.87] - 2026-01-26
+
+### TL;DR
+- Edit artwork UI added to artist cards, album cards, and album modal
+
+### Added
+- **ArtistCard.jsx**: Pencil icon (top-left) on hover to edit artwork, click artwork opens file picker
+- **AlbumCard.jsx**: Pencil icon (top-left) on hover to edit artwork, click artwork opens file picker
+- **AlbumModal.jsx**: Edit artwork button (bottom-right of artwork), click artwork opens file picker
+- **design-system.css**: .edit-btn styling
+
+---
+
+## [0.1.86] - 2026-01-26
+
+### TL;DR
+- Trash icon moved to top-right (was top-left)
+- Artist artwork upload endpoint added
+- Qobuz artist images now download during album import
+
+### Added
+- **artwork.py**: PUT /api/artists/{artist_id}/artwork endpoint for custom artist thumbnails
+- **artwork.py**: DELETE /api/artists/{artist_id}/artwork to restore original
+- **import_service.py**: fetch_artist_image_from_qobuz() downloads artist images from Qobuz API
+- **download.py**: Automatically fetches artist image when importing Qobuz albums
+- **api.js**: uploadArtistArtwork() and restoreArtistArtwork() frontend functions
+- **design-system.css**: .album-action-top-right positioning class
+
+### Changed
+- **ArtistCard.jsx**: Trash icon now positioned top-right (was top-left)
+- **AlbumCard.jsx**: Trash icon now positioned top-right (was top-left)
+- **contracts.md**: Updated trash icon position specification to top-right
+
+---
+
 ## [0.1.85] - 2026-01-26
 
 ### TL;DR

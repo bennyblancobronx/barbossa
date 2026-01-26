@@ -74,12 +74,12 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 | Element | Position | Behavior |
 |---------|----------|----------|
 | Heart icon | Bottom-left of album | Click adds/removes album from user library |
-| Trash icon | Top-left of album | Appears on hover (1 second delay), deletes from disk |
+| Trash icon | Top-right of album | Appears on hover (1 second delay), deletes from disk |
 | A-Z nav | Right side of page | Jump to letter |
 | Source badge | Bottom-right (small) | Shows origin: Qobuz/Lidarr/YouTube/Import |
 
 - Trash requires warning modal + confirm button
-- **Artist cards follow same pattern**: Heart (bottom-left) adds/removes ALL albums by artist, Trash (top-left, 1s delay) deletes artist and all albums
+- **Artist cards follow same pattern**: Heart (bottom-left) adds/removes ALL albums by artist, Trash (top-right, 1s delay) deletes artist and all albums
 
 ### Album/Song Page
 - Each track row: `[Heart] [Track #] [Title] [Source Badge] [Quality]`

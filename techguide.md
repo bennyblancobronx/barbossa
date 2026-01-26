@@ -252,7 +252,12 @@ Browse Qobuz catalog with artwork before downloading. Requires authentication.
 | GET | `/api/tracks/{track_id}/stream` | Stream audio file |
 | GET | `/api/albums/{album_id}/artwork` | Get album artwork |
 | PUT | `/api/albums/{album_id}/artwork` | Update album artwork |
+| DELETE | `/api/albums/{album_id}/artwork` | Restore original album artwork |
 | GET | `/api/artists/{artist_id}/artwork` | Get artist artwork (falls back to first album cover) |
+| PUT | `/api/artists/{artist_id}/artwork` | Upload custom artist artwork |
+| DELETE | `/api/artists/{artist_id}/artwork` | Restore original artist artwork |
+| POST | `/api/artists/{artist_id}/artwork/fetch` | Fetch artist artwork from Qobuz |
+| POST | `/api/artwork/artists/fetch-all` | Batch fetch missing artist artwork from Qobuz |
 
 ### Admin
 
@@ -929,7 +934,8 @@ class LidarrService:
 - Artist name only (no album count per spec)
 - Artwork placeholder shows first letter of name (on image load error)
 - Heart icon (bottom-left): adds/removes all albums by artist from library
-- Trash icon (top-left, 1s delay): deletes artist and all albums from disk
+- Trash icon (top-right, 1s delay): deletes artist and all albums from disk
+- Pencil icon (top-left, on hover): opens file picker to upload custom artwork
 - Artwork fetched from `/api/artists/{id}/artwork` (falls back to first album cover)
 
 **ArtistGrid.jsx** - Grid of artist cards

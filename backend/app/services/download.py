@@ -102,6 +102,9 @@ class DownloadService:
                 min_confidence=0.0  # Trust Qobuz - never send to review
             )
 
+            # Fetch artist artwork from Qobuz
+            await self._ensure_artist_artwork(album, DownloadSource.QOBUZ.value)
+
             # Complete
             download.status = DownloadStatus.COMPLETE.value
             download.result_album_id = album.id
@@ -344,6 +347,25 @@ class DownloadService:
         if artwork:
             album.artwork_path = artwork
             self.db.commit()
+
+    async def _ensure_artist_artwork(self, album: Album, source: str) -> None:
+        """Fetch artist artwork from Qobuz if missing.
+
+        Only runs for Qobuz downloads to leverage the Qobuz API.
+        """
+        if source != DownloadSource.QOBUZ.value:
+            return
+
+        if not album.artist:
+            return
+
+        if album.artist.artwork_path and Path(album.artist.artwork_path).exists():
+            return
+
+        await self.import_service.fetch_artist_image_from_qobuz(
+            album.artist,
+            album.artist.name
+        )
 
     async def _move_to_review(
         self,

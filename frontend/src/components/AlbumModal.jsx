@@ -1,10 +1,14 @@
+import { useRef, useState } from 'react'
 import { useQuery } from 'react-query'
 import * as api from '../services/api'
 import { usePlayerStore } from '../stores/player'
 import TrackRow from './TrackRow'
 
 export default function AlbumModal({ album, onClose }) {
-  const { data, isLoading } = useQuery(
+  const [imageKey, setImageKey] = useState(0)
+  const fileInputRef = useRef(null)
+
+  const { data, isLoading, refetch } = useQuery(
     ['album', album.id],
     () => api.getAlbum(album.id).then(r => r.data),
     {
@@ -25,6 +29,24 @@ export default function AlbumModal({ album, onClose }) {
     play(track, data.tracks)
   }
 
+  const handleEditArtwork = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      await api.uploadArtwork(data.id, file)
+      setImageKey(prev => prev + 1)
+      refetch()
+    } catch (error) {
+      console.error('Artwork upload failed:', error)
+    }
+    e.target.value = ''
+  }
+
   const artistName = data.artist?.name || data.artist_name || 'Unknown Artist'
 
   return (
@@ -36,14 +58,46 @@ export default function AlbumModal({ album, onClose }) {
 
         <div className="album-detail">
           <div className="album-detail-header">
-            <div className="album-detail-artwork">
-              {data.artwork_path ? (
-                <img src={`/api/albums/${data.id}/artwork`} alt={data.title} />
+            <div className="album-detail-artwork" style={{ position: 'relative' }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/jpeg,image/png"
+                style={{ display: 'none' }}
+              />
+              {data.artwork_path || imageKey > 0 ? (
+                <img
+                  key={imageKey}
+                  src={`/api/albums/${data.id}/artwork?v=${imageKey}`}
+                  alt={data.title}
+                  onClick={handleEditArtwork}
+                  style={{ cursor: 'pointer' }}
+                />
               ) : (
-                <div className="artwork-placeholder-lg">
+                <div
+                  className="artwork-placeholder-lg"
+                  onClick={handleEditArtwork}
+                  style={{ cursor: 'pointer' }}
+                >
                   <span>{data.title[0]}</span>
                 </div>
               )}
+              <button
+                className="btn-icon edit-btn"
+                onClick={handleEditArtwork}
+                title="Edit artwork"
+                style={{
+                  position: 'absolute',
+                  bottom: '8px',
+                  right: '8px',
+                  background: 'rgba(0,0,0,0.7)',
+                  borderRadius: '4px',
+                  padding: '6px'
+                }}
+              >
+                <PencilIcon />
+              </button>
             </div>
 
             <div className="album-detail-info">
@@ -104,6 +158,15 @@ function CloseIcon() {
     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" strokeWidth="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
     </svg>
   )
 }

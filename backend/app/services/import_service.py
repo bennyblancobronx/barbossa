@@ -485,3 +485,63 @@ class ImportService:
             cover_path.unlink()
 
         return None
+
+    async def fetch_artist_image_from_qobuz(self, artist: Artist, artist_name: str) -> Optional[str]:
+        """Fetch artist image from Qobuz API and save to disk.
+
+        Args:
+            artist: Artist model
+            artist_name: Artist name to search
+
+        Returns:
+            Path to saved artist image or None
+        """
+        import httpx
+
+        if artist.artwork_path and Path(artist.artwork_path).exists():
+            return artist.artwork_path
+
+        try:
+            from app.integrations.qobuz_api import get_qobuz_api
+
+            qobuz = get_qobuz_api()
+            artists = await qobuz.search_artists(artist_name, limit=1)
+
+            if not artists:
+                logger.debug(f"No Qobuz artist found for: {artist_name}")
+                return None
+
+            qobuz_artist = artists[0]
+            image_url = qobuz_artist.get("image_large") or qobuz_artist.get("image_medium")
+
+            if not image_url:
+                logger.debug(f"No image URL for Qobuz artist: {artist_name}")
+                return None
+
+            # Determine artist folder
+            if artist.path and Path(artist.path).exists():
+                artist_path = Path(artist.path)
+            else:
+                from app.config import settings
+                artist_path = Path(settings.music_library) / artist.name
+                artist_path.mkdir(parents=True, exist_ok=True)
+                artist.path = str(artist_path)
+
+            artwork_path = artist_path / "artist.jpg"
+
+            # Download image
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(image_url)
+                if response.status_code == 200:
+                    with open(artwork_path, "wb") as f:
+                        f.write(response.content)
+
+                    artist.artwork_path = str(artwork_path)
+                    self.db.commit()
+                    logger.info(f"Downloaded Qobuz artist image for: {artist_name}")
+                    return str(artwork_path)
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch Qobuz artist image for {artist_name}: {e}")
+
+        return None

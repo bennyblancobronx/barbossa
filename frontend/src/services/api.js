@@ -152,6 +152,17 @@ export const uploadArtwork = (albumId, file) => {
 export const restoreArtwork = (albumId) =>
   api.delete(`/albums/${albumId}/artwork`)
 
+export const uploadArtistArtwork = (artistId, file) => {
+  const formData = new FormData()
+  formData.append('artwork', file)
+  return api.put(`/artists/${artistId}/artwork`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export const restoreArtistArtwork = (artistId) =>
+  api.delete(`/artists/${artistId}/artwork`)
+
 // Metadata
 export const updateAlbumMetadata = (albumId, data) =>
   api.put(`/metadata/albums/${albumId}`, data)
