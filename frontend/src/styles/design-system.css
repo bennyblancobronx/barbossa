@@ -832,8 +832,9 @@ body {
 
 .track-heart {
   flex-shrink: 0;
-  width: var(--icon-md);
-  height: var(--icon-md);
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  padding: 0;
   color: var(--color-text-muted);
   cursor: pointer;
   transition: color var(--transition-fast);
@@ -841,6 +842,7 @@ body {
 
 .track-heart:hover {
   color: var(--color-text);
+  background: transparent;
 }
 
 .track-heart.is-active {
@@ -849,8 +851,10 @@ body {
 
 .track-play {
   flex-shrink: 0;
-  width: var(--icon-sm);
-  height: var(--icon-sm);
+  width: var(--icon-md);
+  height: var(--icon-md);
+  padding: 0;
+  margin-left: var(--space-2);
   color: var(--color-text-muted);
   cursor: pointer;
   opacity: 0;
@@ -863,6 +867,7 @@ body {
 
 .track-play:hover {
   color: var(--color-accent);
+  background: transparent;
 }
 
 .track-number {

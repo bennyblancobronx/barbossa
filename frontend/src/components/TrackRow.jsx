@@ -63,7 +63,7 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
         onClick={handleHeart}
         disabled={isLoading}
       >
-        <HeartIcon filled={isHearted} size={20} />
+        <HeartIcon filled={isHearted} size={24} />
       </button>
 
       <button
@@ -71,7 +71,7 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
         onClick={handlePlay}
         title="Play track"
       >
-        <PlayIcon size={16} />
+        <PlayIcon size={20} />
       </button>
 
       <span className="track-number">{track.track_number || '-'}</span>

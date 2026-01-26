@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.92] - 2026-01-26
+
+### TL;DR
+- Fixed track row heart (24px) and play button (20px) sizing and padding
+
+### Changed
+- **TrackRow.jsx**: Heart icon 24px, play icon 20px
+- **design-system.css**: Fixed btn-icon padding override, proper sizing for track buttons
+
+---
+
 ## [0.1.91] - 2026-01-26
 
 ### TL;DR
