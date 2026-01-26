@@ -218,3 +218,68 @@ class UserLibraryService:
             select(user_tracks.c.track_id).where(user_tracks.c.user_id == user_id)
         ).fetchall()
         return {row[0] for row in result}
+
+    def heart_artist(self, user_id: int, artist_id: int, username: str) -> int:
+        """Heart all albums by an artist. Returns count of newly hearted albums."""
+        from app.models.artist import Artist
+
+        artist = self.db.query(Artist).filter(Artist.id == artist_id).first()
+        if not artist:
+            raise ValueError("Artist not found")
+
+        albums = self.db.query(Album).filter(Album.artist_id == artist_id).all()
+        count = 0
+        for album in albums:
+            try:
+                if self.heart_album(user_id, album.id, username):
+                    count += 1
+            except ValueError:
+                pass  # Album might not exist
+
+        # Log activity for artist
+        activity = ActivityService(self.db)
+        activity.log(user_id, "heart", "artist", artist_id, {"album_count": count})
+
+        return count
+
+    def unheart_artist(self, user_id: int, artist_id: int, username: str) -> int:
+        """Unheart all albums by an artist. Returns count of unhearted albums."""
+        from app.models.artist import Artist
+
+        artist = self.db.query(Artist).filter(Artist.id == artist_id).first()
+        if not artist:
+            raise ValueError("Artist not found")
+
+        albums = self.db.query(Album).filter(Album.artist_id == artist_id).all()
+        count = 0
+        for album in albums:
+            if self.unheart_album(user_id, album.id, username):
+                count += 1
+
+        # Log activity for artist
+        activity = ActivityService(self.db)
+        activity.log(user_id, "unheart", "artist", artist_id, {"album_count": count})
+
+        return count
+
+    def is_artist_hearted(self, user_id: int, artist_id: int) -> bool:
+        """Check if user has hearted at least one album by the artist."""
+        result = self.db.execute(
+            select(user_albums.c.album_id)
+            .join(Album, Album.id == user_albums.c.album_id)
+            .where(
+                user_albums.c.user_id == user_id,
+                Album.artist_id == artist_id
+            )
+        ).first()
+        return result is not None
+
+    def get_hearted_artist_ids(self, user_id: int) -> set:
+        """Get set of artist IDs where user has hearted at least one album."""
+        result = self.db.execute(
+            select(Album.artist_id)
+            .distinct()
+            .join(user_albums, Album.id == user_albums.c.album_id)
+            .where(user_albums.c.user_id == user_id)
+        ).fetchall()
+        return {row[0] for row in result}

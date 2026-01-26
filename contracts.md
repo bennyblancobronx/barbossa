@@ -79,6 +79,7 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 | Source badge | Bottom-right (small) | Shows origin: Qobuz/Lidarr/YouTube/Import |
 
 - Trash requires warning modal + confirm button
+- **Artist cards follow same pattern**: Heart (bottom-left) adds/removes ALL albums by artist, Trash (top-left, 1s delay) deletes artist and all albums
 
 ### Album/Song Page
 - Each track row: `[Heart] [Track #] [Title] [Source Badge] [Quality]`

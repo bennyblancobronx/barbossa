@@ -1,5 +1,68 @@
 # Changelog
 
+## [0.1.85] - 2026-01-26
+
+### TL;DR
+- Artist thumbnails now display using first album's cover art as fallback
+
+### Added
+- **streaming.py**: GET /api/artists/{artist_id}/artwork endpoint
+  - Returns artist's own artwork if available
+  - Falls back to first album's cover art
+  - Searches common artwork filenames (cover.jpg, folder.jpg, etc.)
+- **test_artist_artwork.py**: 10 comprehensive tests for artist artwork and heart endpoints
+
+### Fixed
+- **ArtistCard.jsx**: Always tries to load artwork from endpoint, shows initial only on error
+  - Previously only tried if artwork_path was set (which was never populated)
+  - Now uses onError fallback to show initial letter placeholder
+
+### Test Coverage
+- 188 tests total (all passing)
+- New tests cover: artwork endpoint, heart/unheart endpoints, is_hearted field
+
+---
+
+## [0.1.84] - 2026-01-26
+
+### TL;DR
+- Added heart icon to artist cards for adding/removing artists from user library
+
+### Added
+- **ArtistCard.jsx**: Heart icon (bottom-left) to add/remove all artist albums from library
+- **api.js**: heartArtist and unheartArtist API functions
+- **library.py (API)**: POST/DELETE /me/library/artists/{artist_id} endpoints
+- **user_library.py (service)**: heart_artist, unheart_artist, is_artist_hearted, get_hearted_artist_ids methods
+- **artist.py (schema)**: is_hearted field added to ArtistResponse
+
+### Behavior
+- Heart on artist card adds ALL albums by that artist to user library
+- Unheart removes ALL albums by that artist from user library
+- Artist list_artists, get_artist, and search endpoints now return is_hearted status
+- Artist cards now match album cards with same hover actions (heart, trash)
+
+---
+
+## [0.1.83] - 2026-01-26
+
+### TL;DR
+- Restored artist delete functionality on Master Library with mouse hover
+
+### Fixed
+- **ArtistCard.jsx**: Added trash icon that appears on 1-second hover (was missing)
+- **ArtistGrid.jsx**: Added onArtistDelete prop passthrough
+- **Library.jsx**: Added refetchArtists after artist deletion
+- **api.js**: Added deleteArtist API function
+- **library.py (API)**: Added DELETE /artists/{id} endpoint
+- **library.py (service)**: Added delete_artist method to LibraryService
+
+### Behavior
+- Hover over artist card for 1 second, trash icon appears at top-left
+- Click trash to delete artist and all their albums from disk
+- Confirmation dialog warns user before deletion
+
+---
+
 ## [0.1.82] - 2026-01-26
 
 ### TL;DR

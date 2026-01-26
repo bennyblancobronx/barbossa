@@ -1,6 +1,6 @@
 import ArtistCard from './ArtistCard'
 
-export default function ArtistGrid({ artists, onArtistClick }) {
+export default function ArtistGrid({ artists, onArtistClick, onArtistDelete }) {
   if (!artists.length) {
     return (
       <div className="empty-state">
@@ -16,6 +16,7 @@ export default function ArtistGrid({ artists, onArtistClick }) {
           key={artist.id}
           artist={artist}
           onClick={() => onArtistClick(artist)}
+          onDelete={onArtistDelete}
         />
       ))}
     </div>

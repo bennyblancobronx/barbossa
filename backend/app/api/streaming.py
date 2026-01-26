@@ -84,3 +84,53 @@ def get_album_artwork(
                 )
 
     raise HTTPException(status_code=404, detail="Artwork not found")
+
+
+@router.get("/artists/{artist_id}/artwork")
+def get_artist_artwork(
+    artist_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get artist artwork (uses first album cover as fallback)."""
+    service = LibraryService(db)
+    artist = service.get_artist(artist_id)
+
+    if not artist:
+        raise HTTPException(status_code=404, detail="Artist not found")
+
+    # Try artist's own artwork_path first
+    if artist.artwork_path:
+        artwork_path = Path(artist.artwork_path)
+        if artwork_path.exists():
+            content_type = "image/png" if str(artwork_path).endswith(".png") else "image/jpeg"
+            return FileResponse(
+                path=artwork_path,
+                media_type=content_type,
+            )
+
+    # Fall back to first album's artwork
+    albums = service.get_artist_albums(artist_id)
+    if albums:
+        for album in albums:
+            # Try artwork_path first
+            if album.artwork_path:
+                artwork_path = Path(album.artwork_path)
+                if artwork_path.exists():
+                    return FileResponse(
+                        path=artwork_path,
+                        media_type="image/jpeg",
+                    )
+
+            # Try common artwork filenames in album folder
+            if album.path:
+                album_path = Path(album.path)
+                for name in ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork.jpg", "artwork.png"]:
+                    artwork_path = album_path / name
+                    if artwork_path.exists():
+                        content_type = "image/png" if name.endswith(".png") else "image/jpeg"
+                        return FileResponse(
+                            path=artwork_path,
+                            media_type=content_type,
+                        )
+
+    raise HTTPException(status_code=404, detail="Artwork not found")

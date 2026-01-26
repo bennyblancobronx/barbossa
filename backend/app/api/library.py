@@ -29,9 +29,18 @@ def list_artists(
 ):
     """List all artists in the library."""
     service = LibraryService(db)
+    user_lib = UserLibraryService(db)
     result = service.list_artists(letter, page, limit)
+    hearted_artist_ids = user_lib.get_hearted_artist_ids(user.id)
+
+    items = []
+    for a in result["items"]:
+        artist_data = ArtistResponse.model_validate(a)
+        artist_data.is_hearted = a.id in hearted_artist_ids
+        items.append(artist_data)
+
     return ArtistListResponse(
-        items=[ArtistResponse.model_validate(a) for a in result["items"]],
+        items=items,
         total=result["total"],
         page=result["page"],
         limit=result["limit"],
@@ -46,10 +55,33 @@ def get_artist(
 ):
     """Get a single artist by ID."""
     service = LibraryService(db)
+    user_lib = UserLibraryService(db)
     artist = service.get_artist(artist_id)
     if not artist:
         raise HTTPException(status_code=404, detail="Artist not found")
-    return ArtistResponse.model_validate(artist)
+    response = ArtistResponse.model_validate(artist)
+    response.is_hearted = user_lib.is_artist_hearted(user.id, artist_id)
+    return response
+
+
+@router.delete("/artists/{artist_id}", response_model=MessageResponse)
+def delete_artist(
+    artist_id: int,
+    delete_files: bool = Query(True, description="Also delete files from disk"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete artist and all their albums from library."""
+    service = LibraryService(db)
+
+    success, error = service.delete_artist(artist_id, delete_files)
+
+    if not success:
+        if error == "Artist not found":
+            raise HTTPException(status_code=404, detail=error)
+        raise HTTPException(status_code=500, detail=error)
+
+    return MessageResponse(message="Artist deleted")
 
 
 @router.get("/artists/{artist_id}/albums", response_model=List[AlbumResponse])
@@ -255,9 +287,16 @@ def search(
     results = service.search(q, type, limit)
     hearted_album_ids = user_lib.get_hearted_album_ids(user.id)
     hearted_track_ids = user_lib.get_hearted_track_ids(user.id)
+    hearted_artist_ids = user_lib.get_hearted_artist_ids(user.id)
+
+    artists_with_hearted = []
+    for a in results["artists"]:
+        artist_data = ArtistResponse.model_validate(a)
+        artist_data.is_hearted = a.id in hearted_artist_ids
+        artists_with_hearted.append(artist_data)
 
     return {
-        "artists": [ArtistResponse.model_validate(a) for a in results["artists"]],
+        "artists": artists_with_hearted,
         "albums": [
             AlbumResponse(
                 id=a.id,
@@ -377,3 +416,37 @@ def unheart_track(
     if service.unheart_track(user.id, track_id, user.username):
         return MessageResponse(message="Track removed from library")
     return MessageResponse(message="Track not in library")
+
+
+@router.post("/me/library/artists/{artist_id}", response_model=MessageResponse)
+def heart_artist(
+    artist_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Heart all albums by an artist (add to user library)."""
+    service = UserLibraryService(db)
+    try:
+        count = service.heart_artist(user.id, artist_id, user.username)
+        if count > 0:
+            return MessageResponse(message=f"Added {count} album(s) to library")
+        return MessageResponse(message="All albums already in library")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/me/library/artists/{artist_id}", response_model=MessageResponse)
+def unheart_artist(
+    artist_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Unheart all albums by an artist (remove from user library)."""
+    service = UserLibraryService(db)
+    try:
+        count = service.unheart_artist(user.id, artist_id, user.username)
+        if count > 0:
+            return MessageResponse(message=f"Removed {count} album(s) from library")
+        return MessageResponse(message="No albums in library")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

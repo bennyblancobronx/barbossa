@@ -61,6 +61,9 @@ export const searchUnified = (q, type, includeExternal = false, limit = 20) =>
 export const deleteAlbum = (id) =>
   api.delete(`/albums/${id}`)
 
+export const deleteArtist = (id) =>
+  api.delete(`/artists/${id}`)
+
 // User Library
 export const getUserLibrary = () =>
   api.get('/me/library')
@@ -76,6 +79,12 @@ export const heartTrack = (trackId) =>
 
 export const unheartTrack = (trackId) =>
   api.delete(`/me/library/tracks/${trackId}`)
+
+export const heartArtist = (artistId) =>
+  api.post(`/me/library/artists/${artistId}`)
+
+export const unheartArtist = (artistId) =>
+  api.delete(`/me/library/artists/${artistId}`)
 
 // Downloads
 export const searchQobuz = (q, type, limit = 20) =>

@@ -18,6 +18,7 @@ class ArtistResponse(ArtistBase):
     path: Optional[str] = None
     artwork_path: Optional[str] = None
     musicbrainz_id: Optional[str] = None
+    is_hearted: bool = False
 
 
 class ArtistListResponse(BaseModel):

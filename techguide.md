@@ -147,6 +147,8 @@ volumes:
 | DELETE | `/api/me/library/albums/{id}` | Unheart album (remove symlinks) |
 | POST | `/api/me/library/tracks/{id}` | Heart individual track |
 | DELETE | `/api/me/library/tracks/{id}` | Unheart individual track |
+| POST | `/api/me/library/artists/{id}` | Heart artist (adds all albums to library) |
+| DELETE | `/api/me/library/artists/{id}` | Unheart artist (removes all albums from library) |
 | GET | `/api/me/activity` | Get user's activity log |
 | POST | `/api/me/export` | Start library export |
 | GET | `/api/me/export/{id}` | Get export status |
@@ -250,6 +252,7 @@ Browse Qobuz catalog with artwork before downloading. Requires authentication.
 | GET | `/api/tracks/{track_id}/stream` | Stream audio file |
 | GET | `/api/albums/{album_id}/artwork` | Get album artwork |
 | PUT | `/api/albums/{album_id}/artwork` | Update album artwork |
+| GET | `/api/artists/{artist_id}/artwork` | Get artist artwork (falls back to first album cover) |
 
 ### Admin
 
@@ -924,7 +927,10 @@ class LidarrService:
 **ArtistCard.jsx** - Artist display card
 - Square artwork with rounded corners (reuses album-card CSS)
 - Artist name only (no album count per spec)
-- Artwork placeholder shows first letter of name
+- Artwork placeholder shows first letter of name (on image load error)
+- Heart icon (bottom-left): adds/removes all albums by artist from library
+- Trash icon (top-left, 1s delay): deletes artist and all albums from disk
+- Artwork fetched from `/api/artists/{id}/artwork` (falls back to first album cover)
 
 **ArtistGrid.jsx** - Grid of artist cards
 - Responsive grid layout (reuses album-grid CSS)

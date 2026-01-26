@@ -13,7 +13,7 @@ export default function Library() {
   const [selectedAlbum, setSelectedAlbum] = useState(null)
 
   // Fetch artists when no artist is selected
-  const { data: artists, isLoading: artistsLoading } = useQuery(
+  const { data: artists, isLoading: artistsLoading, refetch: refetchArtists } = useQuery(
     ['artists', selectedLetter],
     () => api.getArtists({ letter: selectedLetter }).then(r => r.data.items || r.data || []),
     { enabled: !selectedArtist }
@@ -103,6 +103,7 @@ export default function Library() {
         <ArtistGrid
           artists={artists || []}
           onArtistClick={handleArtistClick}
+          onArtistDelete={() => refetchArtists()}
         />
       )}
 

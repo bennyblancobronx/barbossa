@@ -243,3 +243,62 @@ class LibraryService:
                     f"ORPHAN ALERT: Files deleted but DB record remains for album {album_id}"
                 )
             return False, f"Database error: {e}"
+
+    def delete_artist(
+        self, artist_id: int, delete_files: bool = True
+    ) -> tuple[bool, str | None]:
+        """Delete an artist and all their albums from database and optionally disk.
+
+        Args:
+            artist_id: ID of artist to delete
+            delete_files: If True, also delete files from disk (default: True)
+
+        Returns:
+            tuple[bool, str | None]: (success, error_message)
+        """
+        artist = self.get_artist(artist_id)
+        if not artist:
+            return False, "Artist not found"
+
+        artist_name = artist.name
+        artist_path = artist.path
+
+        # Get all albums for this artist
+        albums = self.get_artist_albums(artist_id)
+
+        # Delete each album (this handles files, symlinks, and DB records)
+        for album in albums:
+            success, error = self.delete_album(album.id, delete_files)
+            if not success:
+                logger.error(f"Failed to delete album {album.id} while deleting artist: {error}")
+                # Continue deleting other albums even if one fails
+
+        # Delete artist directory if it exists and is empty
+        if delete_files and artist_path:
+            path = Path(artist_path)
+            if path.exists() and path.is_dir():
+                try:
+                    # Clean up any SMB artifacts
+                    for smb_file in path.glob(".smbdelete*"):
+                        try:
+                            smb_file.unlink()
+                        except Exception:
+                            pass
+
+                    # Only delete if empty (albums should have been deleted)
+                    if not any(path.iterdir()):
+                        path.rmdir()
+                        logger.info(f"Deleted artist directory: {path}")
+                except Exception as e:
+                    logger.warning(f"Could not delete artist directory {path}: {e}")
+
+        # Delete artist from database
+        try:
+            self.db.delete(artist)
+            self.db.commit()
+            logger.info(f"Deleted artist from database: {artist_name}")
+            return True, None
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Database error deleting artist {artist_id}: {e}")
+            return False, f"Database error: {e}"
