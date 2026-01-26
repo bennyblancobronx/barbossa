@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.96] - 2026-01-26
+
+### TL;DR
+- Added debug logging to Player for stream auth troubleshooting
+
+### Changed
+- **Player.jsx**: Added console logs to debug token availability and stream URL
+
+---
+
 ## [0.1.95] - 2026-01-26
 
 ### TL;DR

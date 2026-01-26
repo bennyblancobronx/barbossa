@@ -20,10 +20,16 @@ export default function Player() {
   } = usePlayerStore()
 
   useEffect(() => {
-    if (!audioRef.current || !currentTrack || !token) return
+    if (!audioRef.current || !currentTrack) return
+    if (!token) {
+      console.error('Player: No auth token available')
+      return
+    }
 
     const audio = audioRef.current
-    audio.src = `/api/tracks/${currentTrack.id}/stream?token=${token}`
+    const streamUrl = `/api/tracks/${currentTrack.id}/stream?token=${token}`
+    console.log('Player: Setting stream URL', streamUrl.substring(0, 50) + '...')
+    audio.src = streamUrl
 
     if (isPlaying) {
       audio.play().catch(err => console.error('Play failed:', err))
