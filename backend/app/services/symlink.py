@@ -87,11 +87,17 @@ class SymlinkService:
             self._cleanup_empty_parents(dest.parent, username)
 
     def _create_link(self, source: Path, dest: Path) -> None:
-        """Create hardlink if possible, fallback to symlink."""
+        """Create hardlink if possible, fallback to relative symlink.
+
+        Uses relative symlinks so they work regardless of mount path.
+        This fixes Plex not recognizing symlinks when mounted differently.
+        """
         try:
-            os.link(source, dest)  # Hardlink
+            os.link(source, dest)  # Hardlink (preferred - no path issues)
         except OSError:
-            os.symlink(source, dest)  # Symlink fallback
+            # Use relative path for symlink so it works across different mounts
+            relative_source = os.path.relpath(source, dest.parent)
+            os.symlink(relative_source, dest)
 
     def _cleanup_empty_parents(self, path: Path, username: str) -> None:
         """Remove empty parent directories up to user root."""

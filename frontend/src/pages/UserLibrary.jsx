@@ -2,10 +2,12 @@ import { useState, useMemo } from 'react'
 import { useQuery } from 'react-query'
 import * as api from '../services/api'
 import { useAuthStore } from '../stores/auth'
+import { usePlayerStore } from '../stores/player'
 import ArtistGrid from '../components/ArtistGrid'
 import AlbumGrid from '../components/AlbumGrid'
 import AlbumModal from '../components/AlbumModal'
 import SearchBar from '../components/SearchBar'
+import TrackRow from '../components/TrackRow'
 
 const LETTERS = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
@@ -14,7 +16,9 @@ export default function UserLibrary() {
   const [selectedLetter, setSelectedLetter] = useState(null)
   const [selectedArtist, setSelectedArtist] = useState(null)
   const [selectedAlbum, setSelectedAlbum] = useState(null)
+  const [viewMode, setViewMode] = useState('albums') // 'albums' or 'tracks'
   const user = useAuthStore(state => state.user)
+  const play = usePlayerStore(state => state.play)
 
   const { data, isLoading, refetch } = useQuery(
     ['user-library', user?.id],
@@ -22,7 +26,14 @@ export default function UserLibrary() {
     { enabled: !!user?.id }
   )
 
+  const { data: tracksData, isLoading: tracksLoading, refetch: refetchTracks } = useQuery(
+    ['user-library-tracks', user?.id],
+    () => api.getUserLibraryTracks().then(r => r.data),
+    { enabled: !!user?.id && viewMode === 'tracks' }
+  )
+
   const albums = data?.items || data?.albums || []
+  const tracks = tracksData || []
 
   // Group albums by artist to create artist list
   const artists = useMemo(() => {
@@ -89,6 +100,15 @@ export default function UserLibrary() {
   const handleCloseModal = () => {
     setSelectedAlbum(null)
     refetch()
+    refetchTracks()
+  }
+
+  const handlePlayTrack = (track, index) => {
+    play(track, tracks)
+  }
+
+  const handleTrackHeart = () => {
+    refetchTracks()
   }
 
   return (
@@ -106,14 +126,27 @@ export default function UserLibrary() {
           ) : (
             <>
               <h1 className="text-2xl">My Library</h1>
-              <span className="text-muted">{artists.length} artists</span>
+              <div className="view-toggle">
+                <button
+                  className={`view-toggle-btn ${viewMode === 'albums' ? 'is-active' : ''}`}
+                  onClick={() => { setViewMode('albums'); setSelectedArtist(null) }}
+                >
+                  Albums ({albums.length})
+                </button>
+                <button
+                  className={`view-toggle-btn ${viewMode === 'tracks' ? 'is-active' : ''}`}
+                  onClick={() => { setViewMode('tracks'); setSelectedArtist(null) }}
+                >
+                  Tracks ({tracks.length})
+                </button>
+              </div>
             </>
           )}
         </div>
       </header>
 
-      {/* A-Z nav and search only when viewing artists */}
-      {!selectedArtist && (
+      {/* A-Z nav and search only when viewing albums/artists */}
+      {!selectedArtist && viewMode === 'albums' && (
         <>
           <nav className="letter-nav">
             <button
@@ -143,37 +176,65 @@ export default function UserLibrary() {
         </>
       )}
 
-      {isLoading ? (
-        <div className="loading-state">
-          <p>Loading...</p>
-        </div>
-      ) : selectedArtist ? (
-        // Show albums for selected artist
-        artistAlbums.length === 0 ? (
+      {/* Tracks View */}
+      {viewMode === 'tracks' && !selectedArtist && (
+        tracksLoading ? (
+          <div className="loading-state">
+            <p>Loading...</p>
+          </div>
+        ) : tracks.length === 0 ? (
           <div className="empty-state">
-            <p className="text-muted">No albums from this artist in your library</p>
+            <p className="text-muted">No tracks in your library. Heart individual tracks to add them here.</p>
           </div>
         ) : (
-          <AlbumGrid
-            albums={artistAlbums}
-            onAlbumClick={handleAlbumClick}
-            onAlbumDelete={() => refetch()}
+          <div className="track-list user-library-tracks">
+            {tracks.map((track, index) => (
+              <TrackRow
+                key={track.id}
+                track={track}
+                onPlay={() => handlePlayTrack(track, index)}
+                showAlbumInfo={true}
+                onHeart={handleTrackHeart}
+              />
+            ))}
+          </div>
+        )
+      )}
+
+      {/* Albums View */}
+      {viewMode === 'albums' && (
+        isLoading ? (
+          <div className="loading-state">
+            <p>Loading...</p>
+          </div>
+        ) : selectedArtist ? (
+          // Show albums for selected artist
+          artistAlbums.length === 0 ? (
+            <div className="empty-state">
+              <p className="text-muted">No albums from this artist in your library</p>
+            </div>
+          ) : (
+            <AlbumGrid
+              albums={artistAlbums}
+              onAlbumClick={handleAlbumClick}
+              onAlbumDelete={() => refetch()}
+            />
+          )
+        ) : filteredArtists.length === 0 ? (
+          <div className="empty-state">
+            <p className="text-muted">
+              {searchQuery || selectedLetter
+                ? 'No artists match your filter'
+                : 'No albums in your library. Heart albums to add them here.'}
+            </p>
+          </div>
+        ) : (
+          // Show artists
+          <ArtistGrid
+            artists={filteredArtists}
+            onArtistClick={handleArtistClick}
           />
         )
-      ) : filteredArtists.length === 0 ? (
-        <div className="empty-state">
-          <p className="text-muted">
-            {searchQuery || selectedLetter
-              ? 'No artists match your filter'
-              : 'No albums in your library. Heart albums to add them here.'}
-          </p>
-        </div>
-      ) : (
-        // Show artists
-        <ArtistGrid
-          artists={filteredArtists}
-          onArtistClick={handleArtistClick}
-        />
       )}
 
       {selectedAlbum && (

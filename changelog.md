@@ -1,5 +1,61 @@
 # Changelog
 
+## [0.1.101] - 2026-01-26
+
+### TL;DR
+- User Library now shows hearted tracks (not just albums)
+
+### Added
+- **user_library.py**: `get_library_tracks()` method to fetch hearted tracks with album/artist info
+- **library.py**: `GET /me/library/tracks` endpoint to return user's hearted tracks
+- **api.js**: `getUserLibraryTracks()` function
+- **UserLibrary.jsx**: Albums/Tracks toggle - view either hearted albums or hearted tracks
+- **design-system.css**: `.view-toggle` styles for album/track switcher
+
+### Fixed
+- **TrackRow.jsx**: Now displays album info correctly with flat field format (`album_title`, `artist_name`)
+- **TrackRow.jsx**: Now invalidates `user-library-tracks` cache on heart/unheart
+- **websocket.js**: Now invalidates `user-library-tracks` cache on library updates and download complete
+
+### Technical
+- Hearted tracks were being saved to DB but never displayed anywhere
+- Users can now independently heart: artists (all albums), albums, or individual tracks
+- All three appear in My Library with the new toggle
+
+---
+
+## [0.1.100] - 2026-01-26
+
+### TL;DR
+- Fixed Plex not recognizing user library symlinks
+
+### Fixed
+- **symlink.py**: Now creates relative symlinks instead of absolute paths (fixes Plex cross-mount issues)
+
+### Added
+- **CLI**: `barbossa library rebuild-symlinks` - regenerates all symlinks from database
+  - Use when symlinks are missing or corrupted
+- **CLI**: `barbossa library fix-symlinks` - converts absolute symlinks to relative
+  - Use to fix existing symlinks without recreating
+
+### Technical
+- Absolute symlinks like `/music/artists/...` fail when Plex mounts the volume at a different path
+- Relative symlinks like `../../../../artists/...` work regardless of mount point
+- The rebuild-symlinks command deletes and recreates all symlinks based on hearted albums in database
+
+---
+
+## [0.1.99] - 2026-01-26
+
+### TL;DR
+- Master Library now updates instantly when album import completes
+
+### Fixed
+- **websocket.js**: `import:complete` handler now invalidates library queries (was only showing notification)
+- **websocket.js**: Fixed field names in notification (`artist_name`/`album_title` instead of `artist`/`album`)
+
+---
+
 ## [0.1.98] - 2026-01-26
 
 ### TL;DR

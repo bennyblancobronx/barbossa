@@ -142,7 +142,8 @@ volumes:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/me/library` | Get current user's library |
+| GET | `/api/me/library` | Get current user's hearted albums |
+| GET | `/api/me/library/tracks` | Get current user's hearted tracks |
 | POST | `/api/me/library/albums/{id}` | Heart album (create symlinks) |
 | DELETE | `/api/me/library/albums/{id}` | Unheart album (remove symlinks) |
 | POST | `/api/me/library/tracks/{id}` | Heart individual track |
@@ -950,10 +951,10 @@ class LidarrService:
 - Uses `getArtists()` and `getArtistAlbums()` API calls
 
 **UserLibrary.jsx** - User Library page (same flow as Master)
-- Groups hearted albums by artist
-- Shows Artists derived from user's hearted albums
-- Same drill-down flow: Artists -> Albums -> Tracks
-- A-Z filter and search bar for filtering artists
+- Toggle between Albums and Tracks views
+- Albums view: Groups hearted albums by artist, shows Artists -> Albums -> Tracks drill-down
+- Tracks view: Lists all individually hearted tracks with album/artist info
+- A-Z filter and search bar for filtering artists (albums view only)
 
 ### Layout Components
 
@@ -1257,6 +1258,16 @@ docker-compose exec barbossa python -m app.cli lidarr --status
 
 # Process pending reviews
 docker-compose exec barbossa python -m app.cli review --list
+
+# Rebuild all symlinks from database (use if symlinks are missing)
+docker-compose exec barbossa python -m app.cli.main library rebuild-symlinks [OPTIONS]
+#   --user, -u      Rebuild for specific user only
+#   --dry-run       Preview changes without modifying
+
+# Fix existing symlinks (converts absolute to relative paths)
+docker-compose exec barbossa python -m app.cli.main library fix-symlinks [OPTIONS]
+#   --user, -u      Fix specific user only
+#   --dry-run       Preview changes without modifying
 ```
 
 ---

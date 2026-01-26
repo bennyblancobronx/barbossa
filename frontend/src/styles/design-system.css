@@ -3957,3 +3957,50 @@ body {
     display: none;
   }
 }
+
+/* ==========================================================================
+   VIEW TOGGLE (User Library Albums/Tracks)
+   ========================================================================== */
+
+.view-toggle {
+  display: flex;
+  gap: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+}
+
+.view-toggle-btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.view-toggle-btn:hover {
+  color: var(--color-text);
+  background: var(--color-hover-overlay);
+}
+
+.view-toggle-btn.is-active {
+  color: var(--color-text);
+  background: var(--color-selected-overlay);
+}
+
+.user-library-tracks {
+  padding: var(--space-4);
+}
+
+.user-library-tracks .track-row {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.user-library-tracks .track-row:last-child {
+  border-bottom: none;
+}

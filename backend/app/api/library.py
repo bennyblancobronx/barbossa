@@ -360,6 +360,23 @@ def get_user_library(
     )
 
 
+@router.get("/me/library/tracks", response_model=List[TrackResponse])
+def get_user_library_tracks(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get current user's hearted tracks."""
+    service = UserLibraryService(db)
+    result = service.get_library_tracks(user.id, page, limit)
+
+    return [
+        TrackResponse.from_orm_with_quality(t, is_hearted=True, include_album=True)
+        for t in result["items"]
+    ]
+
+
 @router.post("/me/library/albums/{album_id}", response_model=MessageResponse)
 def heart_album(
     album_id: int,

@@ -283,3 +283,34 @@ class UserLibraryService:
             .where(user_albums.c.user_id == user_id)
         ).fetchall()
         return {row[0] for row in result}
+
+    def get_library_tracks(
+        self,
+        user_id: int,
+        page: int = 1,
+        limit: int = 50
+    ) -> Dict[str, Any]:
+        """Get user's hearted tracks with album/artist info."""
+        query = (
+            self.db.query(Track)
+            .options(joinedload(Track.album).joinedload(Album.artist))
+            .join(user_tracks, Track.id == user_tracks.c.track_id)
+            .filter(user_tracks.c.user_id == user_id)
+            .order_by(user_tracks.c.added_at.desc())
+        )
+
+        total = query.count()
+        items = query.offset((page - 1) * limit).limit(limit).all()
+        pages = (total + limit - 1) // limit
+
+        # Mark all as hearted
+        for track in items:
+            track.is_hearted = True
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": pages,
+        }

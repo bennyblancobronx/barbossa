@@ -247,6 +247,184 @@ def unheart(
         db.close()
 
 
+@app.command("rebuild-symlinks")
+def rebuild_symlinks(
+    user: str = typer.Option(None, "--user", "-u", help="Rebuild for specific user only"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be done without changing"),
+):
+    """Regenerate all user library symlinks from database.
+
+    Recreates symlinks for all hearted albums/tracks based on database records.
+    Use this to fix missing or broken symlinks.
+    """
+    from pathlib import Path
+    import shutil
+    from app.config import settings
+    from app.database import SessionLocal
+    from app.models.user import User
+    from app.models.album import Album
+    from app.models.user_library import user_albums
+    from app.services.symlink import SymlinkService
+    from sqlalchemy import select
+
+    db = SessionLocal()
+    symlink_service = SymlinkService()
+
+    try:
+        users_path = Path(settings.music_users)
+
+        # Get users to process
+        if user:
+            users = db.query(User).filter(User.username == user).all()
+            if not users:
+                console.print(f"[red]User not found: {user}[/red]")
+                raise typer.Exit(1)
+        else:
+            users = db.query(User).all()
+
+        total_albums = 0
+        total_created = 0
+
+        for u in users:
+            console.print(f"\n[cyan]Processing user: {u.username}[/cyan]")
+
+            # Get hearted albums for this user
+            hearted = db.execute(
+                select(user_albums.c.album_id).where(user_albums.c.user_id == u.id)
+            ).fetchall()
+
+            album_ids = [row[0] for row in hearted]
+            albums = db.query(Album).filter(Album.id.in_(album_ids)).all() if album_ids else []
+
+            console.print(f"  Found {len(albums)} hearted albums")
+            total_albums += len(albums)
+
+            for album in albums:
+                if not album.path:
+                    console.print(f"  [yellow]Skip (no path): {album.title}[/yellow]")
+                    continue
+
+                if dry_run:
+                    console.print(f"  Would rebuild: {album.title}")
+                else:
+                    # Remove existing symlinks for this album
+                    try:
+                        source = Path(album.path)
+                        relative = source.relative_to(Path(settings.music_library))
+                        dest = users_path / u.username / relative
+                        if dest.exists():
+                            shutil.rmtree(dest)
+                    except (ValueError, Exception):
+                        pass
+
+                    # Recreate symlinks
+                    symlink_service.create_album_links(u.username, album.path)
+                    console.print(f"  [green]Rebuilt:[/green] {album.title}")
+                    total_created += 1
+
+        console.print(f"\n[bold]Summary:[/bold]")
+        if dry_run:
+            console.print(f"  Would rebuild: {total_albums} albums")
+        else:
+            console.print(f"  Rebuilt: {total_created} albums")
+
+    finally:
+        db.close()
+
+
+@app.command("fix-symlinks")
+def fix_symlinks(
+    user: str = typer.Option(None, "--user", "-u", help="Fix symlinks for specific user only"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be fixed without changing"),
+):
+    """Convert absolute symlinks to relative paths.
+
+    Fixes Plex not recognizing symlinks by converting absolute paths to relative.
+    For missing symlinks, use 'rebuild-symlinks' instead.
+    """
+    from pathlib import Path
+    import os
+    from app.config import settings
+    from app.database import SessionLocal
+    from app.models.user import User
+
+    db = SessionLocal()
+    try:
+        users_path = Path(settings.music_users)
+        library_path = Path(settings.music_library)
+
+        if not users_path.exists():
+            console.print(f"[red]Users path does not exist: {users_path}[/red]")
+            raise typer.Exit(1)
+
+        # Get users to process
+        if user:
+            users = db.query(User).filter(User.username == user).all()
+            if not users:
+                console.print(f"[red]User not found: {user}[/red]")
+                raise typer.Exit(1)
+        else:
+            users = db.query(User).all()
+
+        total_fixed = 0
+        total_errors = 0
+
+        for u in users:
+            user_lib_path = users_path / u.username
+            if not user_lib_path.exists():
+                continue
+
+            console.print(f"\n[cyan]Processing user: {u.username}[/cyan]")
+
+            # Find all symlinks in user's library
+            for root, dirs, files in os.walk(user_lib_path):
+                for filename in files:
+                    filepath = Path(root) / filename
+
+                    # Skip non-symlinks (hardlinks don't need fixing)
+                    if not filepath.is_symlink():
+                        continue
+
+                    target = os.readlink(filepath)
+
+                    # Skip already-relative symlinks
+                    if not os.path.isabs(target):
+                        continue
+
+                    # Convert to relative
+                    try:
+                        relative_target = os.path.relpath(target, filepath.parent)
+
+                        if dry_run:
+                            console.print(f"  Would fix: {filepath.name}")
+                            console.print(f"    From: {target}")
+                            console.print(f"    To:   {relative_target}")
+                        else:
+                            # Remove old symlink and create new one
+                            filepath.unlink()
+                            os.symlink(relative_target, filepath)
+                            console.print(f"  [green]Fixed:[/green] {filepath.name}")
+
+                        total_fixed += 1
+                    except Exception as e:
+                        console.print(f"  [red]Error fixing {filepath}: {e}[/red]")
+                        total_errors += 1
+
+        console.print(f"\n[bold]Summary:[/bold]")
+        if dry_run:
+            console.print(f"  Would fix: {total_fixed} symlinks")
+        else:
+            console.print(f"  Fixed: {total_fixed} symlinks")
+        if total_errors:
+            console.print(f"  [red]Errors: {total_errors}[/red]")
+
+        if total_fixed > 0 and not dry_run:
+            console.print("\n[yellow]Trigger a Plex library scan to pick up the changes.[/yellow]")
+
+    finally:
+        db.close()
+
+
 @app.command("my-library")
 def my_library(
     page: int = typer.Option(1, "--page", "-p", help="Page number"),

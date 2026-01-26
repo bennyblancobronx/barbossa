@@ -68,6 +68,9 @@ export const deleteArtist = (id) =>
 export const getUserLibrary = () =>
   api.get('/me/library')
 
+export const getUserLibraryTracks = () =>
+  api.get('/me/library/tracks')
+
 export const heartAlbum = (albumId) =>
   api.post(`/me/library/albums/${albumId}`)
 

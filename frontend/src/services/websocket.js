@@ -72,6 +72,7 @@ function handleMessage(data) {
       // Refresh library to show new album
       queryClient.invalidateQueries('albums')
       queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-tracks')
       queryClient.invalidateQueries('downloads')
       break
 
@@ -85,8 +86,12 @@ function handleMessage(data) {
     case 'import:complete':
       useNotificationStore.getState().addNotification({
         type: 'success',
-        message: `Import complete: ${data.artist} - ${data.album}`
+        message: `Import complete: ${data.artist_name} - ${data.album_title}`
       })
+      // Refresh library to show new album
+      queryClient.invalidateQueries('artists')
+      queryClient.invalidateQueries('artist-albums')
+      queryClient.invalidateQueries('albums')
       break
 
     case 'import:review':
@@ -112,6 +117,7 @@ function handleLibraryUpdate(data) {
   // Always invalidate library queries to refresh data
   queryClient.invalidateQueries('albums')
   queryClient.invalidateQueries('user-library')
+  queryClient.invalidateQueries('user-library-tracks')
 
   switch (data.action) {
     case 'created':

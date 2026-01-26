@@ -26,6 +26,7 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false, onHeart
       }
       // Invalidate user library cache so My Library page updates
       queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-tracks')
       if (onHeart) onHeart(track.id, !isHearted)
     } catch (error) {
       console.error('Heart track failed:', error)
@@ -94,8 +95,11 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false, onHeart
 
       <div className="track-info">
         <span className="track-title">{track.title}</span>
-        {showAlbumInfo && track.album?.title && (
-          <span className="track-album">{track.album.title}</span>
+        {showAlbumInfo && (track.album?.title || track.album_title) && (
+          <span className="track-album">
+            {track.artist_name && `${track.artist_name} - `}
+            {track.album?.title || track.album_title}
+          </span>
         )}
       </div>
 
