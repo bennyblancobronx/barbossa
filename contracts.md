@@ -83,8 +83,8 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 - Source badges shown per-track in album modal, not on album cards
 
 ### Album/Song Page
-- Each track row: `[Heart] [Play] [Track #] [Title] [Source Badge] [Quality] [Duration]`
-- Play button visible on row hover
+- Each track row: `[Heart] [Play/Pause] [Track #] [Title] [Source Badge] [Quality] [Duration]`
+- Play button always visible; shows Pause icon when that track is playing
 - Heart adds/removes individual song from user library
 - Album art displayed prominently
 - Quality indicator: 24/192, 16/44.1, or "lossy"

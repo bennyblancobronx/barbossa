@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.94] - 2026-01-26
+
+### TL;DR
+- Play button always visible, shows pause icon when track is playing
+
+### Changed
+- **TrackRow.jsx**: Play button always visible, toggles to pause when playing
+- **TrackRow.jsx**: Added PauseIcon component
+- **TrackRow.jsx**: Uses player store to check current track state
+- **design-system.css**: Removed opacity: 0 from track-play
+
+---
+
 ## [0.1.93] - 2026-01-26
 
 ### TL;DR

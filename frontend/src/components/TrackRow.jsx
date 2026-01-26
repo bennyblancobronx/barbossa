@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import * as api from '../services/api'
+import { usePlayerStore } from '../stores/player'
 
 export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
   const [isHearted, setIsHearted] = useState(track.is_hearted)
   const [isLoading, setIsLoading] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
+
+  const { currentTrack, isPlaying, pause, resume } = usePlayerStore()
+  const isCurrentTrack = currentTrack?.id === track.id
+  const isThisPlaying = isCurrentTrack && isPlaying
 
   const handleHeart = async (e) => {
     e.stopPropagation()
@@ -25,9 +29,19 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
     }
   }
 
-  const handlePlay = (e) => {
+  const handlePlayPause = (e) => {
     e.stopPropagation()
-    if (onPlay) onPlay()
+    if (isCurrentTrack) {
+      // Toggle play/pause for current track
+      if (isPlaying) {
+        pause()
+      } else {
+        resume()
+      }
+    } else {
+      // Play this track
+      if (onPlay) onPlay()
+    }
   }
 
   const formatDuration = (seconds) => {
@@ -53,10 +67,8 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
 
   return (
     <div
-      className="track-row"
+      className={`track-row ${isCurrentTrack ? 'is-playing' : ''}`}
       onClick={onPlay}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <button
         className={`track-heart ${isHearted ? 'is-active' : ''}`}
@@ -68,11 +80,11 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
       </button>
 
       <button
-        className={`track-play ${isHovered ? 'is-visible' : ''}`}
-        onClick={handlePlay}
-        title="Play track"
+        className={`track-play ${isThisPlaying ? 'is-playing' : ''}`}
+        onClick={handlePlayPause}
+        title={isThisPlaying ? 'Pause' : 'Play'}
       >
-        <PlayIcon size={24} />
+        {isThisPlaying ? <PauseIcon size={24} /> : <PlayIcon size={24} />}
       </button>
 
       <span className="track-number">{track.track_number || '-'}</span>
@@ -107,10 +119,19 @@ function HeartIcon({ filled, size = 20 }) {
   )
 }
 
-function PlayIcon({ size = 16 }) {
+function PlayIcon({ size = 24 }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" stroke="none">
       <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  )
+}
+
+function PauseIcon({ size = 24 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" stroke="none">
+      <rect x="6" y="4" width="4" height="16" />
+      <rect x="14" y="4" width="4" height="16" />
     </svg>
   )
 }
