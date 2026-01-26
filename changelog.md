@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.113] - 2026-01-26
+
+### TL;DR
+- Added sync method to retroactively auto-heart albums with all tracks hearted
+
+### Added
+- **user_library.py**: `sync_auto_heart_albums()` method to fix existing data
+- Ran sync for all users - 1 album auto-hearted for bryant
+
+---
+
 ## [0.1.112] - 2026-01-26
 
 ### TL;DR

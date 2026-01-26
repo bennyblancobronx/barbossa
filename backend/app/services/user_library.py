@@ -196,6 +196,52 @@ class UserLibraryService:
         if hearted_tracks == total_tracks:
             self.heart_album(user_id, album_id, username)
 
+    def sync_auto_heart_albums(self, user_id: int, username: str) -> int:
+        """Retroactively auto-heart albums where all tracks are individually hearted.
+
+        Returns count of albums auto-hearted.
+        """
+        from sqlalchemy import func
+
+        # Find all albums where user has hearted tracks
+        album_ids = self.db.execute(
+            select(Track.album_id)
+            .distinct()
+            .join(user_tracks, Track.id == user_tracks.c.track_id)
+            .where(user_tracks.c.user_id == user_id)
+        ).fetchall()
+
+        count = 0
+        for (album_id,) in album_ids:
+            # Skip if already hearted
+            if self.is_album_hearted(user_id, album_id):
+                continue
+
+            # Get total track count
+            total = self.db.query(func.count(Track.id)).filter(
+                Track.album_id == album_id
+            ).scalar()
+
+            # Get hearted track count
+            hearted = self.db.execute(
+                select(func.count(user_tracks.c.track_id))
+                .join(Track, Track.id == user_tracks.c.track_id)
+                .where(
+                    user_tracks.c.user_id == user_id,
+                    Track.album_id == album_id
+                )
+            ).scalar()
+
+            # Auto-heart if all tracks hearted
+            if hearted == total and total > 0:
+                try:
+                    self.heart_album(user_id, album_id, username)
+                    count += 1
+                except Exception:
+                    pass  # Skip on error (e.g., symlink issues)
+
+        return count
+
     def unheart_track(self, user_id: int, track_id: int, username: str) -> bool:
         """Unheart an individual track."""
         track = self.db.query(Track).filter(Track.id == track_id).first()
