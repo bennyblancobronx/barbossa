@@ -54,9 +54,8 @@ def stream_track(
 def get_album_artwork(
     album_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
 ):
-    """Get album cover artwork."""
+    """Get album cover artwork (no auth required for img tags)."""
     service = LibraryService(db)
     album = service.get_album(album_id)
 

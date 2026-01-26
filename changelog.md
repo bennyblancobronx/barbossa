@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.79] - 2026-01-26
+
+### TL;DR
+- Fixed album artwork not displaying - removed auth requirement from artwork endpoint
+
+### Fixed
+- **streaming.py**: Artwork endpoint no longer requires authentication (img tags dont send auth headers)
+- Album thumbnails will now display correctly in the library grid
+
+---
+
 ## [0.1.78] - 2026-01-26
 
 ### TL;DR
