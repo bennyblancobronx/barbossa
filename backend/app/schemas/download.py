@@ -1,7 +1,7 @@
 """Download request/response schemas."""
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class DownloadCreate(BaseModel):
@@ -28,6 +28,8 @@ class DownloadCreate(BaseModel):
 
 class DownloadResponse(BaseModel):
     """Download response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     source: str
@@ -44,9 +46,6 @@ class DownloadResponse(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class SearchResult(BaseModel):
@@ -93,6 +92,8 @@ class UrlInfo(BaseModel):
 
 class DownloadStatusResponse(BaseModel):
     """Download status for polling."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     status: str
     progress: int
@@ -100,6 +101,3 @@ class DownloadStatusResponse(BaseModel):
     eta: Optional[str] = None
     error_message: Optional[str] = None
     result_album_id: Optional[int] = None
-
-    class Config:
-        from_attributes = True

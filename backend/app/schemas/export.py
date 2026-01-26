@@ -1,7 +1,7 @@
 """Export schemas."""
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.models.export import ExportFormat
 
 
@@ -16,6 +16,8 @@ class ExportCreate(BaseModel):
 
 class ExportResponse(BaseModel):
     """Export response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     destination: str
@@ -31,6 +33,3 @@ class ExportResponse(BaseModel):
     created_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True

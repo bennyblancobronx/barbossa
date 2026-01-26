@@ -1,5 +1,5 @@
 """Album schemas."""
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional, List
 
@@ -12,15 +12,16 @@ class AlbumBase(BaseModel):
 
 class ArtistBrief(BaseModel):
     """Brief artist info for album responses."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
-
-    class Config:
-        from_attributes = True
 
 
 class AlbumResponse(AlbumBase):
     """Album response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     artist_id: int
     path: Optional[str] = None
@@ -30,21 +31,17 @@ class AlbumResponse(AlbumBase):
     source: Optional[str] = None
     is_hearted: bool = False
 
-    class Config:
-        from_attributes = True
-
 
 class AlbumDetailResponse(AlbumResponse):
     """Album detail with artist info."""
+    model_config = ConfigDict(from_attributes=True)
+
     artist: ArtistBrief
     disc_count: int = 1
     genre: Optional[str] = None
     label: Optional[str] = None
     musicbrainz_id: Optional[str] = None
     created_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 class AlbumListResponse(BaseModel):

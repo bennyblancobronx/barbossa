@@ -1,10 +1,12 @@
 """Application configuration from environment variables."""
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment."""
+
+    model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
 
     # Database
     database_url: str = "postgresql://barbossa:barbossa@db:5432/barbossa"
@@ -65,10 +67,6 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "info"
     log_path: str = ""
-
-    class Config:
-        env_file = (".env", "../.env")  # Check both backend/ and parent dir
-        extra = "ignore"
 
 
 @lru_cache

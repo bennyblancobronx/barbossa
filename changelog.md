@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.71] - 2026-01-26
+
+### TL;DR
+- Fixed all Pydantic V2 and datetime deprecation warnings
+- Updated FastAPI to use lifespan context manager
+
+### Fixed
+- Replaced deprecated `class Config` with `model_config = ConfigDict(...)` in all Pydantic schemas
+- Replaced deprecated `datetime.utcnow()` with `datetime.now(timezone.utc)` throughout codebase
+- Replaced deprecated `@app.on_event("startup")` with lifespan context manager in main.py
+
+---
+
 ## [0.1.70] - 2026-01-26
 
 ### TL;DR

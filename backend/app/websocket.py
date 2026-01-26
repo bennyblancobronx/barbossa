@@ -4,7 +4,7 @@ Per-user tracking with heartbeat for connection keepalive.
 """
 import asyncio
 from typing import Dict, Set, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import WebSocket
 from app.database import SessionLocal
 from app.models.user import User
@@ -81,7 +81,7 @@ class ConnectionManager:
                 try:
                     await websocket.send_json({
                         "type": "heartbeat",
-                        "timestamp": datetime.utcnow().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     })
                 except Exception:
                     self.disconnect(websocket, user_id)
@@ -117,7 +117,7 @@ async def broadcast_download_progress(
         "progress": progress,
         "speed": speed,
         "eta": eta,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await manager.send_to_user(user_id, message)
 
@@ -136,7 +136,7 @@ async def broadcast_download_complete(
         "album_id": album_id,
         "album_title": album_title,
         "artist_name": artist_name,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await manager.send_to_user(user_id, message)
 
@@ -151,7 +151,7 @@ async def broadcast_download_error(
         "type": "download:error",
         "download_id": download_id,
         "error": error,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await manager.send_to_user(user_id, message)
 
@@ -169,7 +169,7 @@ async def broadcast_import_complete(
         "album_title": album_title,
         "artist_name": artist_name,
         "source": source,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await manager.broadcast_all(message)
 
@@ -179,7 +179,7 @@ async def broadcast_activity(activity: dict):
     message = {
         "type": "activity",
         **activity,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await manager.broadcast_all(message)
 
@@ -189,7 +189,7 @@ async def notify_user(user_id: int, notification: dict):
     message = {
         "type": "notification",
         **notification,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await manager.send_to_user(user_id, message)
 
@@ -205,7 +205,7 @@ async def broadcast_library_update(
         "entity_type": entity_type,
         "entity_id": entity_id,
         "action": action,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     await manager.broadcast_all(message)
 
@@ -225,7 +225,7 @@ async def broadcast_review_needed(
         "suggested_artist": suggested_artist,
         "suggested_album": suggested_album,
         "confidence": confidence,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     db = SessionLocal()
     try:

@@ -1,7 +1,7 @@
 """Unified search API endpoint."""
 from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Any
 import logging
 
@@ -18,13 +18,12 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 # Response Schemas
 class LocalResults(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     count: int
     albums: List[Any] = []
     artists: List[Any] = []
     tracks: List[Any] = []
-
-    class Config:
-        from_attributes = True
 
 
 class ExternalResults(BaseModel):

@@ -1,11 +1,13 @@
 """Review schemas."""
 from typing import Optional, Any
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ReviewResponse(BaseModel):
     """Pending review response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     path: str
     suggested_artist: Optional[str] = None
@@ -19,9 +21,6 @@ class ReviewResponse(BaseModel):
     notes: Optional[str] = None
     error_message: Optional[str] = None
     created_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 class ApproveRequest(BaseModel):

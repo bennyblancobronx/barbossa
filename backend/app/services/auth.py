@@ -1,5 +1,5 @@
 """Authentication service."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -26,11 +26,12 @@ class AuthService:
 
     def create_token(self, user_id: int) -> str:
         """Create a JWT token for a user."""
-        expire = datetime.utcnow() + timedelta(hours=settings.jwt_expiry_hours)
+        now = datetime.now(timezone.utc)
+        expire = now + timedelta(hours=settings.jwt_expiry_hours)
         payload = {
             "sub": str(user_id),
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": now,
         }
         return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 

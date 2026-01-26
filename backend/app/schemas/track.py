@@ -1,5 +1,5 @@
 """Track schemas."""
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
 
@@ -13,6 +13,8 @@ class TrackBase(BaseModel):
 
 class TrackResponse(TrackBase):
     """Track response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     album_id: int
     duration: Optional[int] = None
@@ -32,9 +34,6 @@ class TrackResponse(TrackBase):
 
     # User context
     is_hearted: bool = False
-
-    class Config:
-        from_attributes = True
 
     @classmethod
     def from_orm_with_quality(cls, track, is_hearted: bool = False):

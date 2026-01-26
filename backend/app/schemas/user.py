@@ -1,5 +1,5 @@
 """User schemas."""
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
 
@@ -17,12 +17,11 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     """User response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     is_admin: bool = False
     created_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 class UserLogin(BaseModel):

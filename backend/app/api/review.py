@@ -1,6 +1,6 @@
 """Pending review API endpoints."""
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pathlib import Path
@@ -127,7 +127,7 @@ async def approve_import(
         # Update review status
         review.status = PendingReviewStatus.APPROVED
         review.reviewed_by = current_user.id
-        review.reviewed_at = datetime.utcnow()
+        review.reviewed_at = datetime.now(timezone.utc)
         db.commit()
 
         return {"status": "approved", "album_id": album.id}
@@ -171,7 +171,7 @@ async def reject_import(
 
     review.status = PendingReviewStatus.REJECTED
     review.reviewed_by = current_user.id
-    review.reviewed_at = datetime.utcnow()
+    review.reviewed_at = datetime.now(timezone.utc)
     review.notes = data.reason
     db.commit()
 
