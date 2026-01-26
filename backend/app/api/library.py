@@ -394,7 +394,12 @@ def get_user_library_artist_albums(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Get user's hearted albums for a specific artist."""
+    """Get user's library albums for a specific artist.
+
+    Includes albums that are:
+    - Hearted directly (is_hearted=True), OR
+    - Contain at least one hearted track (is_hearted=False)
+    """
     service = UserLibraryService(db)
     albums = service.get_library_artist_albums(user.id, artist_id)
 
@@ -413,7 +418,7 @@ def get_user_library_artist_albums(
             total_tracks=a.total_tracks,
             available_tracks=a.available_tracks,
             source=a.source,
-            is_hearted=True,
+            is_hearted=a.is_hearted,  # Use actual value from service
         )
         for a in albums
     ]

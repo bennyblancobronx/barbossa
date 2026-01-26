@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.110] - 2026-01-26
+
+### TL;DR
+- Fixed API bug where all albums showed as hearted in User Library artist view
+
+### Fixed
+- **library.py**: `get_user_library_artist_albums()` now uses `a.is_hearted` from service instead of hardcoded `True`
+
+### Audit Results
+Verified with database containing:
+- User 2 has hearted album "Add Violence" (Nine Inch Nails)
+- User 2 has hearted tracks from "With Teeth" and "Growin' Pains"
+
+API now correctly returns:
+- Add Violence: `is_hearted=true` (album directly hearted)
+- With Teeth: `is_hearted=false` (appears because contains hearted track)
+- Growin' Pains: `is_hearted=false` (appears because contains hearted track)
+
+---
+
 ## [0.1.109] - 2026-01-26
 
 ### TL;DR
