@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.102] - 2026-01-26
+
+### TL;DR
+- Fixed heart functionality not updating UI instantly across all views
+
+### Fixed
+- **AlbumModal.jsx**: TrackRow now receives `onHeart` callback - hearts in album view now trigger proper refresh
+- **TrackRow.jsx**: Now invalidates album-specific queries when track is hearted (fixes stale heart state in album views)
+- **AlbumCard.jsx**: Now invalidates `user-library-tracks` cache when album is hearted
+- **ArtistCard.jsx**: Now invalidates `user-library-tracks` cache when artist is hearted
+
+### Technical
+- Root cause: Cache invalidation was incomplete across components
+- Hearting a track in AlbumModal didn't trigger refetch because onHeart callback was missing
+- Hearting albums/artists only invalidated album cache, not tracks cache
+- All components now invalidate both `user-library` and `user-library-tracks` caches
+
+---
+
 ## [0.1.101] - 2026-01-26
 
 ### TL;DR

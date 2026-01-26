@@ -24,9 +24,13 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false, onHeart
         await api.heartTrack(track.id)
         setIsHearted(true)
       }
-      // Invalidate user library cache so My Library page updates
+      // Invalidate caches so all views update
       queryClient.invalidateQueries('user-library')
       queryClient.invalidateQueries('user-library-tracks')
+      // Also invalidate album queries so track heart state updates in album views
+      if (track.album_id) {
+        queryClient.invalidateQueries(['album', track.album_id])
+      }
       if (onHeart) onHeart(track.id, !isHearted)
     } catch (error) {
       console.error('Heart track failed:', error)

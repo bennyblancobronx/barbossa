@@ -52,6 +52,11 @@ export default function AlbumModal({ album, onClose }) {
     play(track, data.tracks)
   }
 
+  const handleTrackHeart = () => {
+    // Refetch album to get updated track heart states
+    refetch()
+  }
+
   const handleEditArtwork = () => {
     fileInputRef.current?.click()
   }
@@ -170,6 +175,7 @@ export default function AlbumModal({ album, onClose }) {
                     key={track.id}
                     track={track}
                     onPlay={() => handlePlayTrack(track)}
+                    onHeart={handleTrackHeart}
                   />
                 ))}
               </div>

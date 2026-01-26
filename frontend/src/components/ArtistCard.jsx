@@ -41,8 +41,9 @@ export default function ArtistCard({ artist, onClick, onDelete, onHeart }) {
         await api.heartArtist(artist.id)
         setIsHearted(true)
       }
-      // Invalidate user library cache so My Library page updates
+      // Invalidate user library caches so My Library page updates
       queryClient.invalidateQueries('user-library')
+      queryClient.invalidateQueries('user-library-tracks')
       if (onHeart) onHeart(artist.id, !isHearted)
     } catch (error) {
       console.error('Heart action failed:', error)
