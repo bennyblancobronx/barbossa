@@ -1182,14 +1182,27 @@ docker-compose up -d
 docker-compose logs -f barbossa
 docker-compose logs -f worker
 
-# Create user
-docker-compose exec barbossa python -m app.cli create-user username
+# User management
+docker-compose exec barbossa barbossa admin create-user <username>
+docker-compose exec barbossa barbossa admin list-users
+docker-compose exec barbossa barbossa admin delete-user <username> [-f|--force]
+
+# Import album from folder
+docker-compose exec barbossa barbossa admin import <path> [OPTIONS]
+#   --artist, -a    Override artist name
+#   --album, -A     Override album name
+#   --year, -y      Override year
+#   --copy, -c      Copy files instead of moving
+#   --force, -f     Import even if duplicate detected
 
 # Rescan library
-docker-compose exec barbossa python -m app.cli rescan
+docker-compose exec barbossa barbossa admin rescan [OPTIONS]
+#   --path, -p      Specific path to scan (defaults to library root)
+#   --dry-run, -n   Show what would be done without making changes
 
-# Import existing library
-docker-compose exec barbossa python -m app.cli import /path/to/existing
+# Database initialization
+docker-compose exec barbossa barbossa admin db-init
+docker-compose exec barbossa barbossa admin seed [--user admin] [--pass password]
 
 # Check for duplicates
 docker-compose exec barbossa python -m app.cli dupes --dry-run

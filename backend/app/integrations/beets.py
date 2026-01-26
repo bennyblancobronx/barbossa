@@ -1,10 +1,17 @@
-"""Beets integration for auto-tagging."""
+"""Beets integration for auto-tagging.
+
+Uses beets Python API when available, falls back to CLI.
+"""
 import asyncio
+import logging
 import re
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, List
+
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class BeetsError(Exception):
@@ -13,7 +20,7 @@ class BeetsError(Exception):
 
 
 class BeetsClient:
-    """Wrapper for beets CLI.
+    """Wrapper for beets - uses Python API when available, CLI fallback.
 
     Beets handles:
     - Metadata lookup (MusicBrainz)
@@ -25,6 +32,18 @@ class BeetsClient:
     def __init__(self):
         self.config_path = Path("/config/beets.yaml")
         self._library_path = None
+        self._use_api = self._check_beets_api()
+
+    def _check_beets_api(self) -> bool:
+        """Check if beets Python API is available."""
+        try:
+            import beets
+            from beets import config as beets_config
+            from beets.autotag import mb
+            return True
+        except ImportError:
+            logger.info("Beets Python API not available, using CLI fallback")
+            return False
 
     @property
     def library_path(self) -> Path:
@@ -33,8 +52,8 @@ class BeetsClient:
             self._library_path = Path(settings.music_library)
         return self._library_path
 
-    async def identify(self, path: Path) -> dict:
-        """Identify album metadata without importing.
+    async def identify(self, path: Path) -> Dict[str, Any]:
+        """Identify album metadata.
 
         Args:
             path: Path to album folder
@@ -42,9 +61,87 @@ class BeetsClient:
         Returns:
             Dict with artist, album, year, tracks, confidence
         """
+        if self._use_api:
+            return await self._identify_api(path)
+        return await self._identify_cli(path)
+
+    async def _identify_api(self, path: Path) -> Dict[str, Any]:
+        """Identify using beets Python API."""
+        try:
+            from beets import autotag
+            from beets.autotag import mb
+            from beets.util import displayable_path
+            import mediafile
+
+            # Get audio files
+            audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff"}
+            audio_files = sorted([
+                f for f in path.iterdir()
+                if f.is_file() and f.suffix.lower() in audio_extensions
+            ])
+
+            if not audio_files:
+                return self._parse_folder_name(path.name)
+
+            # Read metadata from first track
+            try:
+                mf = mediafile.MediaFile(str(audio_files[0]))
+                local_artist = mf.artist or mf.albumartist or ""
+                local_album = mf.album or ""
+                local_year = mf.year
+            except Exception as e:
+                logger.warning(f"Failed to read metadata: {e}")
+                local_artist = ""
+                local_album = ""
+                local_year = None
+
+            # Try MusicBrainz lookup
+            if local_artist and local_album:
+                try:
+                    # Search MusicBrainz
+                    candidates = mb.match_album(local_artist, local_album)
+                    candidates_list = list(candidates)
+
+                    if candidates_list:
+                        best = candidates_list[0]
+                        # Calculate confidence from distance (lower = better match)
+                        confidence = max(0, 1.0 - (best.distance / 0.5))
+
+                        return {
+                            "artist": best.info.artist or local_artist,
+                            "album": best.info.album or local_album,
+                            "year": best.info.year or local_year,
+                            "confidence": confidence,
+                            "tracks": len(audio_files),
+                            "musicbrainz_id": best.info.album_id if hasattr(best.info, 'album_id') else None
+                        }
+                except Exception as e:
+                    logger.warning(f"MusicBrainz lookup failed: {e}")
+
+            # Return local metadata with partial confidence
+            if local_artist or local_album:
+                return {
+                    "artist": local_artist or None,
+                    "album": local_album or path.name,
+                    "year": local_year,
+                    "confidence": 0.6 if local_artist and local_album else 0.4,
+                    "tracks": len(audio_files)
+                }
+
+            # Fall back to folder name parsing
+            folder_info = self._parse_folder_name(path.name)
+            folder_info["tracks"] = len(audio_files)
+            return folder_info
+
+        except Exception as e:
+            logger.error(f"Beets API identify failed: {e}")
+            return await self._identify_cli(path)
+
+    async def _identify_cli(self, path: Path) -> Dict[str, Any]:
+        """Identify using beets CLI (fallback)."""
         cmd = [
             "beet", "import",
-            "--pretend",  # Don't actually import
+            "--pretend",
             str(path)
         ]
 
@@ -56,16 +153,14 @@ class BeetsClient:
         identification = self._parse_identification(result)
 
         # If beets didn't identify, try parsing folder name
-        # Format: "Artist - Album (Year) [Format] [Quality]"
         if not identification.get("artist") or identification.get("confidence", 0) == 0:
             folder_info = self._parse_folder_name(path.name)
             if folder_info.get("artist"):
                 identification["artist"] = identification.get("artist") or folder_info.get("artist")
                 identification["album"] = identification.get("album") or folder_info.get("album")
                 identification["year"] = identification.get("year") or folder_info.get("year")
-                # Give partial confidence for folder-parsed data
                 if identification["confidence"] == 0:
-                    identification["confidence"] = 0.5  # 50% - needs review
+                    identification["confidence"] = 0.5
 
         return identification
 
@@ -102,14 +197,10 @@ class BeetsClient:
         else:
             cmd.append("--copy")
 
-        # Note: beet import doesn't support --set the same way
-        # We'll use the path structure or update after import
-
         cmd.append(str(path))
 
         await self._run_command(cmd, allow_failure=True)
 
-        # Find imported album path
         return await self._find_imported_path(
             artist or self._extract_artist_from_path(path),
             album or path.name
@@ -142,28 +233,60 @@ class BeetsClient:
 
         # Move or copy files
         for file in path.iterdir():
-            dest = target_dir / file.name
-            if move:
-                shutil.move(str(file), str(dest))
-            else:
-                shutil.copy2(str(file), str(dest))
+            if file.is_file():
+                dest = target_dir / file.name
+                if move:
+                    shutil.move(str(file), str(dest))
+                else:
+                    shutil.copy2(str(file), str(dest))
 
-        # Run beet import on the new location to fix tags
-        cmd = ["beet", "import", "--quiet"]
-        if self.config_path.exists():
-            cmd.extend(["-c", str(self.config_path)])
-        cmd.append(str(target_dir))
+        # Tag files with provided metadata
+        if self._use_api:
+            await self._tag_files_api(target_dir, artist, album, year)
+        else:
+            # Run beet import on the new location to fix tags
+            cmd = ["beet", "import", "--quiet"]
+            if self.config_path.exists():
+                cmd.extend(["-c", str(self.config_path)])
+            cmd.append(str(target_dir))
+            await self._run_command(cmd, allow_failure=True)
 
-        await self._run_command(cmd, allow_failure=True)
+        # Clean up empty source directory
+        if move and path.exists() and not any(path.iterdir()):
+            path.rmdir()
 
         return target_dir
 
-    async def update_tags(self, path: Path) -> None:
-        """Update tags on existing files.
+    async def _tag_files_api(self, path: Path, artist: str, album: str, year: Optional[int]) -> None:
+        """Tag files using mediafile library."""
+        try:
+            import mediafile
 
-        Args:
-            path: Path to album or file
-        """
+            audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff"}
+            audio_files = sorted([
+                f for f in path.iterdir()
+                if f.is_file() and f.suffix.lower() in audio_extensions
+            ])
+
+            for i, audio_file in enumerate(audio_files, 1):
+                try:
+                    mf = mediafile.MediaFile(str(audio_file))
+                    mf.artist = artist
+                    mf.albumartist = artist
+                    mf.album = album
+                    if year:
+                        mf.year = year
+                    if not mf.track:
+                        mf.track = i
+                    mf.save()
+                except Exception as e:
+                    logger.warning(f"Failed to tag {audio_file.name}: {e}")
+
+        except ImportError:
+            logger.warning("mediafile not available for tagging")
+
+    async def update_tags(self, path: Path) -> None:
+        """Update tags on existing files."""
         cmd = ["beet", "modify", "-y", f"path:{path}"]
         if self.config_path.exists():
             cmd.insert(1, "-c")
@@ -180,6 +303,7 @@ class BeetsClient:
         Returns:
             Path to artwork file or None
         """
+        # Try beets fetchart plugin
         cmd = ["beet", "fetchart", "-y", f"path:{path}"]
         if self.config_path.exists():
             cmd.insert(1, "-c")
@@ -193,9 +317,49 @@ class BeetsClient:
             if artwork.exists():
                 return artwork
 
+        # Try Cover Art Archive directly if beets failed
+        artwork_path = await self._fetch_coverart_archive(path)
+        if artwork_path:
+            return artwork_path
+
         return None
 
-    async def _run_command(self, cmd: list[str], allow_failure: bool = False) -> str:
+    async def _fetch_coverart_archive(self, path: Path) -> Optional[Path]:
+        """Fetch artwork from Cover Art Archive."""
+        try:
+            import aiohttp
+            import mediafile
+
+            # Get MusicBrainz release ID from files
+            audio_extensions = {".flac", ".mp3", ".m4a"}
+            audio_files = [f for f in path.iterdir() if f.suffix.lower() in audio_extensions]
+
+            if not audio_files:
+                return None
+
+            mf = mediafile.MediaFile(str(audio_files[0]))
+            mb_albumid = mf.mb_albumid
+
+            if not mb_albumid:
+                return None
+
+            # Fetch from Cover Art Archive
+            url = f"https://coverartarchive.org/release/{mb_albumid}/front-500"
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=10) as response:
+                    if response.status == 200:
+                        cover_path = path / "cover.jpg"
+                        with open(cover_path, "wb") as f:
+                            f.write(await response.read())
+                        return cover_path
+
+        except Exception as e:
+            logger.debug(f"Cover Art Archive fetch failed: {e}")
+
+        return None
+
+    async def _run_command(self, cmd: List[str], allow_failure: bool = False) -> str:
         """Run beets command."""
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -207,10 +371,9 @@ class BeetsClient:
         if process.returncode != 0 and not allow_failure:
             raise BeetsError(stderr.decode() or stdout.decode())
 
-        # Return combined output for parsing
         return stdout.decode() + stderr.decode()
 
-    def _parse_identification(self, output: str) -> dict:
+    def _parse_identification(self, output: str) -> Dict[str, Any]:
         """Parse beets identification output."""
         confidence = 0.0
         artist = None
@@ -257,7 +420,6 @@ class BeetsClient:
     async def _find_imported_path(self, artist: str, album: str) -> Path:
         """Find imported album path in library."""
         # Beets organizes as: /library/Artist/Album (Year)/
-        # Try exact match first
         for artist_dir in self.library_path.iterdir():
             if not artist_dir.is_dir():
                 continue
@@ -270,24 +432,24 @@ class BeetsClient:
                     if album_dir.is_dir() and album.lower() in album_dir.name.lower():
                         return album_dir
 
-        # If not found, return expected path (might exist)
+        # If not found, return expected path
         expected = self.library_path / artist / album
         if expected.exists():
             return expected
 
         raise BeetsError(f"Could not find imported album: {artist} - {album}")
 
-    def _parse_folder_name(self, name: str) -> dict:
+    def _parse_folder_name(self, name: str) -> Dict[str, Any]:
         """Parse folder name in streamrip format.
 
         Format: "Artist - Album (Year) [Format] [Quality]"
         Example: "Joni Mitchell - Blue (1971) [FLAC] [24B-192kHz]"
         """
-        result = {"artist": None, "album": None, "year": None}
+        result = {"artist": None, "album": None, "year": None, "confidence": 0.5}
 
         # Remove format/quality brackets from end
         clean_name = re.sub(r'\s*\[.*?\]\s*$', '', name)
-        clean_name = re.sub(r'\s*\[.*?\]\s*$', '', clean_name)  # Remove second bracket
+        clean_name = re.sub(r'\s*\[.*?\]\s*$', '', clean_name)
 
         # Extract year if present
         year_match = re.search(r'\((\d{4})\)\s*$', clean_name)
@@ -307,7 +469,6 @@ class BeetsClient:
 
     def _extract_artist_from_path(self, path: Path) -> str:
         """Extract artist name from download path structure."""
-        # Typically: /downloads/Artist/Album or /downloads/Artist - Album
         name = path.name
         if " - " in name:
             return name.split(" - ")[0]

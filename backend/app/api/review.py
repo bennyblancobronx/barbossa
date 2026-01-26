@@ -77,11 +77,16 @@ async def approve_import(
         if not folder.exists():
             raise HTTPException(status_code=404, detail="Source folder not found")
 
-        # Import with overrides
-        library_path = await beets.import_album(
+        # Import with overrides - use import_with_metadata for explicit overrides (more reliable)
+        artist = data.artist or review.suggested_artist
+        album = data.album or review.suggested_album
+        year = data.year
+
+        library_path = await beets.import_with_metadata(
             folder,
-            artist=data.artist or review.suggested_artist,
-            album=data.album or review.suggested_album,
+            artist=artist,
+            album=album,
+            year=year,
             move=True
         )
 

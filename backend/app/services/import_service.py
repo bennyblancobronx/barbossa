@@ -1,5 +1,6 @@
 """Album import and duplicate detection service."""
 import shutil
+import logging
 from pathlib import Path
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -12,6 +13,8 @@ from app.models.pending_review import PendingReview, PendingReviewStatus
 from app.utils.normalize import normalize_text
 from app.integrations.exiftool import quality_score, format_quality
 from app.services.quality import generate_checksum
+
+logger = logging.getLogger(__name__)
 
 
 class ImportError(Exception):
@@ -301,4 +304,96 @@ class ImportService:
             artwork_path = path / name
             if artwork_path.exists():
                 return str(artwork_path)
+        return None
+
+    async def fetch_artwork_if_missing(self, album: Album) -> Optional[str]:
+        """Fetch artwork for album if not present.
+
+        Tries beets fetchart first, then embedded art extraction.
+
+        Args:
+            album: Album model to fetch artwork for
+
+        Returns:
+            Path to artwork file or None if not found
+        """
+        if not album.path:
+            return None
+
+        album_path = Path(album.path)
+        if not album_path.exists():
+            return None
+
+        # Check if artwork already exists
+        existing = self._find_artwork(album_path)
+        if existing:
+            return existing
+
+        # Try beets fetchart
+        try:
+            from app.integrations.beets import BeetsClient
+            beets = BeetsClient()
+            artwork_path = await beets.fetch_artwork(album_path)
+            if artwork_path:
+                logger.info(f"Fetched artwork for {album.title}: {artwork_path}")
+                return str(artwork_path)
+        except Exception as e:
+            logger.warning(f"Beets fetchart failed for {album.title}: {e}")
+
+        # Try extracting embedded artwork from audio files
+        try:
+            artwork_path = await self._extract_embedded_artwork(album_path)
+            if artwork_path:
+                logger.info(f"Extracted embedded artwork for {album.title}: {artwork_path}")
+                return str(artwork_path)
+        except Exception as e:
+            logger.warning(f"Embedded art extraction failed for {album.title}: {e}")
+
+        logger.warning(f"No artwork found for {album.title}")
+        return None
+
+    async def _extract_embedded_artwork(self, album_path: Path) -> Optional[str]:
+        """Extract embedded artwork from audio files.
+
+        Args:
+            album_path: Path to album folder
+
+        Returns:
+            Path to extracted cover.jpg or None
+        """
+        import asyncio
+
+        audio_extensions = {".flac", ".mp3", ".m4a"}
+        audio_files = [f for f in album_path.iterdir() if f.suffix.lower() in audio_extensions]
+
+        if not audio_files:
+            return None
+
+        cover_path = album_path / "cover.jpg"
+
+        # Try ffmpeg to extract artwork
+        for audio_file in audio_files[:3]:  # Try first 3 files
+            cmd = [
+                "ffmpeg", "-y", "-i", str(audio_file),
+                "-an", "-vcodec", "copy",
+                str(cover_path)
+            ]
+
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL
+                )
+                await process.wait()
+
+                if cover_path.exists() and cover_path.stat().st_size > 0:
+                    return str(cover_path)
+            except Exception:
+                continue
+
+        # Clean up empty file if created
+        if cover_path.exists() and cover_path.stat().st_size == 0:
+            cover_path.unlink()
+
         return None

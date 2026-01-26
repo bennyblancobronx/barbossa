@@ -1,5 +1,74 @@
 # Changelog
 
+## [0.1.62] - 2026-01-25
+
+### Fixed - CLI and GUI Import Flow
+
+**CLI typer compatibility fix**
+- Upgraded typer from 0.9.0 to 0.21.1 (click 8.3.x compatibility)
+- Fixed TyperArgument.make_metavar() signature mismatch
+- CLI import now correctly handles multi-word arguments (e.g., --artist "Nine Inch Nails")
+
+**GUI import approve flow fix**
+- Changed approve endpoint to use import_with_metadata() instead of import_album()
+- More reliable file handling without depending on beets auto-detection
+- Now properly respects artist/album/year overrides from user
+
+**SMB temp file cleanup**
+- Cleaned up .smbdelete* temp files left by SMB mount operations
+- Removed empty directories in library structure
+
+### Files Modified
+- backend/requirements.txt - typer 0.9.0 -> 0.21.1
+- backend/app/api/review.py - Use import_with_metadata for approve
+
+---
+
+## [0.1.61] - 2026-01-25
+
+### Fixed - Critical Audit Issues
+
+**P0 - Album deletion now removes files from disk**
+- delete_album() now deletes files via shutil.rmtree() (was DB-only)
+- Cleans up empty artist directories after deletion
+- Optional delete_files=False parameter to preserve files if needed
+
+**P1 - CLI import command added**
+- `barbossa admin import <path>` imports albums from folder
+- Supports --artist, --album, --year overrides
+- Duplicate detection with --force override
+- Shows artwork status after import
+
+**P1 - Library rescan implemented**
+- `barbossa admin rescan` scans library and indexes new albums
+- Supports --path for specific directory
+- Supports --dry-run to preview without changes
+- Reports existing vs new album counts
+
+**P2 - Artwork fetch after import**
+- New fetch_artwork_if_missing() method in ImportService
+- Tries beets fetchart, Cover Art Archive, embedded extraction
+- Import task now fetches artwork if beets didn't get it
+
+**P3 - Beets integration rewritten**
+- Now uses beets Python API when available (more reliable)
+- Falls back to CLI parsing when API unavailable
+- Direct MusicBrainz lookups via beets.autotag.mb
+- File tagging via mediafile library
+- Cover Art Archive direct fetch as fallback
+
+### Added
+- backend/tests/test_import_integration.py - Integration tests for import pipeline
+
+### Files Modified
+- backend/app/services/library.py - P0: File deletion on album delete
+- backend/app/services/import_service.py - P2: Artwork fetch methods
+- backend/app/integrations/beets.py - P3: Python API integration
+- backend/app/tasks/imports.py - P2: Artwork fetch after import
+- backend/app/cli/admin.py - P1: import and rescan commands
+
+---
+
 ## [0.1.60] - 2026-01-25
 
 ### Removed - Dead Code Cleanup

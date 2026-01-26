@@ -1,10 +1,15 @@
 """Library service for browsing master library."""
+import shutil
+import logging
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from app.models.artist import Artist
 from app.models.album import Album
 from app.models.track import Track
+
+logger = logging.getLogger(__name__)
 
 
 class LibraryService:
@@ -140,12 +145,45 @@ class LibraryService:
 
         return results
 
-    def delete_album(self, album_id: int) -> bool:
-        """Delete an album from the database (not from disk)."""
+    def delete_album(self, album_id: int, delete_files: bool = True) -> bool:
+        """Delete an album from database and optionally from disk.
+
+        Args:
+            album_id: ID of album to delete
+            delete_files: If True, also delete files from disk (default: True)
+
+        Returns:
+            True if album was deleted, False if not found
+        """
         album = self.get_album(album_id)
         if not album:
             return False
 
+        album_path = album.path
+        artist_id = album.artist_id
+
+        # Delete tracks first (foreign key constraint)
+        self.db.query(Track).filter(Track.album_id == album_id).delete()
+
+        # Delete album from database
         self.db.delete(album)
         self.db.commit()
+
+        # Delete files from disk if requested
+        if delete_files and album_path:
+            path = Path(album_path)
+            if path.exists() and path.is_dir():
+                try:
+                    shutil.rmtree(path)
+                    logger.info(f"Deleted album files: {path}")
+
+                    # Clean up empty artist directory
+                    artist_dir = path.parent
+                    if artist_dir.exists() and not any(artist_dir.iterdir()):
+                        artist_dir.rmdir()
+                        logger.info(f"Removed empty artist directory: {artist_dir}")
+                except Exception as e:
+                    logger.error(f"Failed to delete album files {path}: {e}")
+                    # Don't fail - db record is already deleted
+
         return True

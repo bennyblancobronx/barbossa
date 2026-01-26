@@ -153,6 +153,14 @@ def process_import(self, folder_path: str):
                 confidence=confidence
             )
 
+            # Fetch artwork if missing
+            if not album.artwork_path:
+                artwork = await import_service.fetch_artwork_if_missing(album)
+                if artwork:
+                    album.artwork_path = artwork
+                    db.commit()
+                    logger.info(f"Added artwork for {album.title}")
+
             # Trigger Plex scan
             await trigger_plex_scan(str(library_path.parent))
 
