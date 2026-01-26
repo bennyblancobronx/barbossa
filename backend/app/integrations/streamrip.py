@@ -115,6 +115,15 @@ class StreamripClient:
             flags=re.MULTILINE
         )
 
+        # Disable download tracking database to allow re-downloads
+        # This prevents "Skipping track - Marked as downloaded" errors
+        config_content = re.sub(
+            r'^downloads_enabled\s*=\s*true',
+            'downloads_enabled = false',
+            config_content,
+            flags=re.MULTILINE
+        )
+
         # Write updated config
         with open(config_path, 'w') as f:
             f.write(config_content)
@@ -447,37 +456,65 @@ class StreamripClient:
         return max(folders, key=lambda f: f.stat().st_mtime)
 
     def _find_new_folder(self, existing_folders: set) -> Path:
-        """Find newly created folder by comparing to pre-download snapshot.
+        """Find newly created or updated folder by comparing to pre-download snapshot.
 
         Args:
             existing_folders: Set of folder names that existed before download
 
         Returns:
-            Path to the new folder
+            Path to the downloaded folder
 
         Raises:
-            StreamripError: If no new folder was created
+            StreamripError: If no valid download folder found
         """
         current_folders = set(
             f.name for f in self.download_path.iterdir() if f.is_dir()
         )
         new_folders = current_folders - existing_folders
 
-        if not new_folders:
-            raise StreamripError("No new folder created - download may have failed")
+        # First, check for genuinely new folders with audio files
+        if new_folders:
+            for folder_name in new_folders:
+                folder_path = self.download_path / folder_name
+                audio_files = [
+                    f for f in folder_path.rglob("*")
+                    if f.suffix.lower() in {".flac", ".mp3", ".m4a", ".ogg", ".wav"}
+                ]
+                if audio_files:
+                    return folder_path
 
-        if len(new_folders) == 1:
-            return self.download_path / new_folders.pop()
+            # New folder exists but no audio - might still be downloading or failed
+            if len(new_folders) == 1:
+                return self.download_path / new_folders.pop()
 
-        # Multiple new folders - return the one with audio files
-        for folder_name in new_folders:
+        # No new folders - check if an existing folder was updated
+        # Look for folders with audio files (streamrip may have merged into existing)
+        for folder_name in current_folders:
             folder_path = self.download_path / folder_name
             audio_files = [
                 f for f in folder_path.rglob("*")
                 if f.suffix.lower() in {".flac", ".mp3", ".m4a", ".ogg", ".wav"}
             ]
             if audio_files:
-                return folder_path
+                # Found a folder with audio - use the most recently modified one
+                pass
 
-        # No audio files found in any new folder - return first one
-        return self.download_path / new_folders.pop()
+        # Find folder with most recent modification time that has audio
+        candidates = []
+        for folder_name in current_folders:
+            folder_path = self.download_path / folder_name
+            audio_files = [
+                f for f in folder_path.rglob("*")
+                if f.suffix.lower() in {".flac", ".mp3", ".m4a", ".ogg", ".wav"}
+            ]
+            if audio_files:
+                # Get most recent file modification time
+                latest_mtime = max(f.stat().st_mtime for f in audio_files)
+                candidates.append((folder_path, latest_mtime))
+
+        if candidates:
+            # Return folder with most recent audio file
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            return candidates[0][0]
+
+        raise StreamripError("No folder with audio files found - download may have failed")

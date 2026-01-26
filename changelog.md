@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.1.73] - 2026-01-26
+
+### TL;DR
+- Fixed beets CLI command syntax and album name parsing
+- Downloads should now complete successfully through the full pipeline
+
+### Fixed
+- **beets.py**: Fixed CLI syntax - `-c` config flag now placed BEFORE subcommand
+- **beets.py**: Album name parsing now uses `_parse_folder_name()` to extract just album title from streamrip folder format (was using full folder name including artist)
+
+### Technical
+- Streamrip folders are named `Artist - Album (Year) [Format]`
+- Previously passed full name to `_find_imported_path()` causing "Could not find imported album: Artist - Artist - Album" errors
+
+---
+
+## [0.1.72] - 2026-01-26
+
+### TL;DR
+- Fixed download pipeline - downloads now actually work end-to-end
+- Fixed beets output parsing, streamrip folder detection, disabled download tracking
+
+### Fixed
+- **beets.py**: Parser no longer treats error messages as artist names (skip "No files imported" lines)
+- **streamrip.py**: Disabled downloads.db tracking to allow re-downloads
+- **streamrip.py**: Folder detection now finds existing folders with audio files instead of erroring
+
+### Root Causes Found
+1. Streamrip marked tracks as "already downloaded" blocking re-downloads
+2. Folder detection failed when no NEW folder created (existing album)
+3. Beets error output parsed as metadata causing garbage artist names
+4. SMB mount issues causing .smbdelete file artifacts
+
+---
+
 ## [0.1.71] - 2026-01-26
 
 ### TL;DR

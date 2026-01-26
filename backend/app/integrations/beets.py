@@ -188,10 +188,13 @@ class BeetsClient:
         Returns:
             Path to imported album in library
         """
-        cmd = ["beet", "import"]
+        # Build command with -c BEFORE subcommand (beet -c config import ...)
+        cmd = ["beet"]
 
         if self.config_path.exists():
             cmd.extend(["-c", str(self.config_path)])
+
+        cmd.append("import")
 
         if quiet:
             cmd.append("--quiet")
@@ -206,10 +209,13 @@ class BeetsClient:
         await self._run_command(cmd, allow_failure=True)
 
         try:
-            return await self._find_imported_path(
-                artist or self._extract_artist_from_path(path),
-                album or path.name
-            )
+            # Parse artist/album from streamrip folder format if not provided
+            if not artist or not album:
+                parsed = self._parse_folder_name(path.name)
+                artist = artist or parsed.get("artist") or self._extract_artist_from_path(path)
+                album = album or parsed.get("album") or path.name
+
+            return await self._find_imported_path(artist, album)
         except BeetsError:
             fallback = self._find_by_track_filename(path)
             if fallback:
@@ -255,10 +261,11 @@ class BeetsClient:
             await self._tag_files_api(target_dir, artist, album, year)
         else:
             # Run beet import on the new location to fix tags
-            cmd = ["beet", "import", "--quiet"]
+            # Note: -c must come BEFORE subcommand
+            cmd = ["beet"]
             if self.config_path.exists():
                 cmd.extend(["-c", str(self.config_path)])
-            cmd.append(str(target_dir))
+            cmd.extend(["import", "--quiet", str(target_dir)])
             await self._run_command(cmd, allow_failure=True)
 
         # Clean up empty source directory
@@ -391,8 +398,23 @@ class BeetsClient:
         year = None
         tracks = []
 
+        # Error/warning indicators to skip
+        skip_indicators = [
+            "No files imported",
+            "Error",
+            "Warning",
+            "Traceback",
+            "Exception",
+            "/music/",  # Skip lines containing paths
+            "/config/",
+        ]
+
         for line in output.split("\n"):
             line = line.strip()
+
+            # Skip empty lines and error messages
+            if not line or any(skip in line for skip in skip_indicators):
+                continue
 
             # Match confidence: "Similarity: 95.5%" or "(Similarity: 95.5%)"
             if "Similarity:" in line:
@@ -401,12 +423,16 @@ class BeetsClient:
                     confidence = float(match.group(1)) / 100
 
             # Match album info: "Artist - Album (Year)"
+            # Only match if it doesn't look like a path or error
             match = re.match(r"^(.+?)\s+-\s+(.+?)(?:\s+\((\d{4})\))?$", line)
             if match and not artist:
-                artist = match.group(1).strip()
-                album = match.group(2).strip()
-                if match.group(3):
-                    year = int(match.group(3))
+                potential_artist = match.group(1).strip()
+                # Additional validation - skip if looks like error/path
+                if not potential_artist.startswith(("/", "No ", "Error")):
+                    artist = potential_artist
+                    album = match.group(2).strip()
+                    if match.group(3):
+                        year = int(match.group(3))
 
             # Match explicit labels
             if line.startswith("Album:"):
