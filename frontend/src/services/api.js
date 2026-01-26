@@ -41,6 +41,9 @@ export const getArtists = (params) =>
 export const getArtist = (id) =>
   api.get(`/artists/${id}`)
 
+export const getArtistAlbums = (artistId) =>
+  api.get(`/artists/${artistId}/albums`)
+
 export const getAlbums = (params) =>
   api.get('/albums', { params })
 

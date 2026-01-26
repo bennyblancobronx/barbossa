@@ -919,6 +919,30 @@ class LidarrService:
 
 ## Frontend Components
 
+### Library Navigation Components
+
+**ArtistCard.jsx** - Artist display card
+- Square artwork with rounded corners (reuses album-card CSS)
+- Artist name only (no album count per spec)
+- Artwork placeholder shows first letter of name
+
+**ArtistGrid.jsx** - Grid of artist cards
+- Responsive grid layout (reuses album-grid CSS)
+- Empty state when no artists found
+- onClick handler for drilling into artist
+
+**Library.jsx** - Master Library page (Artist -> Album -> Track flow)
+- Default: Shows all Artists with A-Z filter on right
+- Click artist: Shows that artist's Albums with back button
+- Click album: Opens AlbumModal with Tracks
+- Uses `getArtists()` and `getArtistAlbums()` API calls
+
+**UserLibrary.jsx** - User Library page (same flow as Master)
+- Groups hearted albums by artist
+- Shows Artists derived from user's hearted albums
+- Same drill-down flow: Artists -> Albums -> Tracks
+- A-Z filter and search bar for filtering artists
+
 ### Layout Components
 
 **Sidebar.jsx** - Main navigation with integrated search

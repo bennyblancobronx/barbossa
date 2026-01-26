@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.81] - 2026-01-26
+
+### TL;DR
+- Library pages now show Artists first, then Albums, then Tracks (per original spec)
+- Both Master Library and User Library now have identical navigation flow
+
+### Fixed
+- **Library.jsx**: Now shows Artists grid first, click artist to see their albums, click album for tracks
+- **UserLibrary.jsx**: Now shows Artists grouped from hearted albums, same navigation flow
+- Added ArtistCard.jsx and ArtistGrid.jsx components
+- Added back button and page header styling for drill-down navigation
+- A-Z filter now filters Artists (not Albums)
+
+### Behavior Change
+- Navigation: Artists -> Albums -> Tracks (was: Albums -> Tracks)
+- Master Library and User Library now feel identical per contracts.md
+
+---
+
 ## [0.1.80] - 2026-01-26
 
 ### TL;DR

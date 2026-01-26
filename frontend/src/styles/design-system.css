@@ -1769,6 +1769,32 @@ body {
   margin-bottom: var(--space-6);
 }
 
+.page-header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.btn-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.btn-back:hover {
+  color: var(--color-text);
+  background: var(--color-hover-overlay);
+}
+
 /* ---- Album Grid ---- */
 .album-grid {
   display: grid;
