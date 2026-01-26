@@ -154,6 +154,11 @@ volumes:
 | POST | `/api/me/export` | Start library export |
 | GET | `/api/me/export/{id}` | Get export status |
 
+**Auto-Heart Behavior:**
+- When all tracks on an album are individually hearted, the album is automatically hearted
+- This creates album-level symlinks and marks the album as hearted in the UI
+- Works for albums with any number of tracks (including single-track albums)
+
 ### Unified Search
 
 The `/api/search/unified` endpoint provides a single search interface with external fallback.

@@ -85,7 +85,7 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 ### Album/Song Page
 - Each track row: `[Heart] [Play/Pause] [Track #] [Title] [Source Badge] [Quality] [Duration]`
 - Play button always visible; shows Pause icon when that track is playing
-- Heart adds/removes individual song from user library
+- Heart adds/removes individual song from user library (auto-hearts album when all tracks hearted)
 - Album art displayed prominently
 - Quality indicator: 24/192, 16/44.1, or "lossy"
 - Mixed-source albums show per-track source
