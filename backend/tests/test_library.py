@@ -102,7 +102,7 @@ def test_get_artist_albums(client, sample_library, auth_headers):
 
 
 def test_get_album(client, sample_library, auth_headers):
-    """Test getting album details."""
+    """Test getting album details with tracks."""
     album_id = sample_library["album"].id
     response = client.get(f"/api/albums/{album_id}", headers=auth_headers)
 
@@ -110,7 +110,14 @@ def test_get_album(client, sample_library, auth_headers):
     data = response.json()
     assert data["title"] == "Abbey Road"
     assert data["artist"]["name"] == "The Beatles"
+    assert data["artist_name"] == "The Beatles"
     assert data["is_hearted"] is False
+
+    # Verify tracks are included in album detail response
+    assert "tracks" in data
+    assert len(data["tracks"]) == 3
+    assert data["tracks"][0]["track_number"] == 1
+    assert data["tracks"][0]["title"] == "Track 1"
 
 
 def test_get_album_tracks(client, sample_library, auth_headers):

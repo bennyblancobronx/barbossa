@@ -1,6 +1,6 @@
 """User library service for managing hearted albums/tracks."""
 from typing import Dict, Any, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import insert, delete, select
 from app.models.user import User
 from app.models.album import Album
@@ -23,9 +23,10 @@ class UserLibraryService:
         page: int = 1,
         limit: int = 50
     ) -> Dict[str, Any]:
-        """Get user's hearted albums."""
+        """Get user's hearted albums with artist info."""
         query = (
             self.db.query(Album)
+            .options(joinedload(Album.artist))
             .join(user_albums, Album.id == user_albums.c.album_id)
             .filter(user_albums.c.user_id == user_id)
             .order_by(user_albums.c.added_at.desc())

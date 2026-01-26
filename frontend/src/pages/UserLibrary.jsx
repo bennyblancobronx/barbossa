@@ -64,6 +64,7 @@ export default function UserLibrary() {
         <AlbumGrid
           albums={filteredAlbums}
           onAlbumClick={setSelectedAlbum}
+          onAlbumDelete={() => refetch()}
         />
       )}
 

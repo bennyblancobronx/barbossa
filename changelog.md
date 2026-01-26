@@ -1,5 +1,121 @@
 # Changelog
 
+## [0.1.78] - 2026-01-26
+
+### TL;DR
+- Added missing test assertion for album detail tracks response
+
+### Fixed
+- **test_library.py**: test_get_album now verifies tracks are returned in album detail response
+- Validates tracks list contains 3 items with correct track_number and title
+- Validates artist_name field is populated
+
+### Test Coverage
+- All 14 metadata-fix-popo.md issues now have code fixes AND test coverage
+
+---
+
+## [0.1.77] - 2026-01-26
+
+### TL;DR
+- P3 fixes: WebSocket download progress now works, quality display handles None values
+- Real-time download updates will now broadcast to connected users
+
+### Fixed
+- **downloads.py tasks**: Fixed WebSocket broadcast - was importing non-existent `broadcast_progress`, now uses correct `broadcast_download_progress` with user_id
+- **downloads.py tasks**: Both Qobuz and URL download tasks now broadcast progress to the correct user
+- **track.py model**: quality_display now handles None bitrate (defaults to 256 for lossy, shows format only if no quality data)
+
+### Impact
+- Issue 5 (Download Tracking): FIXED - WebSocket broadcasts progress to user
+- Issue 12 (Quality Display): FIXED - no more "Nonekbps" display
+
+---
+
+## [0.1.76] - 2026-01-26
+
+### TL;DR
+- P1 fixes: Track responses now include artist/album context for player, delete refreshes UI
+- Player will now show artist name and album artwork during playback
+
+### Fixed
+- **track.py schema**: Added artist_name, album_title, artwork_path fields for player display
+- **track.py schema**: from_orm_with_quality now populates album/artist context
+- **library.py service**: Eager loads album.artist for track queries (get_album_tracks, search)
+- **AlbumCard.jsx**: Now calls onDelete callback after successful delete
+- **AlbumGrid.jsx**: Passes onAlbumDelete prop to AlbumCard
+- **Library.jsx**: Passes onAlbumDelete that triggers refetch
+- **UserLibrary.jsx**: Passes onAlbumDelete that triggers refetch
+
+### Impact
+- Issue 6 (Delete Refresh): FIXED - UI updates immediately after delete
+- Issue 9 (Track Artist): FIXED - player has artist/album context
+
+---
+
+## [0.1.75] - 2026-01-26
+
+### TL;DR
+- P0 fixes: Artist now shows correctly, albums now return tracks, play function works
+- ExifTool now reads ALBUMARTIST (Qobuz primary tag), DATE/ORIGINALDATE for year, DiscNumber
+- Album detail API now includes tracks list - frontend play function will work
+- All album lists now include artist_name field
+
+### Fixed
+- **exiftool.py**: Artist extraction now prefers ALBUMARTIST over Artist (Qobuz uses ALBUMARTIST)
+- **exiftool.py**: Year extraction now falls back to DATE and ORIGINALDATE tags
+- **exiftool.py**: Added DiscNumber and Genre extraction
+- **album.py schema**: Added artist_name to AlbumResponse, tracks list to AlbumDetailResponse
+- **library.py API**: Album detail now returns full track list with all metadata
+- **library.py API**: All album endpoints now return artist_name
+- **library.py service**: Added eager loading for artist relationship in list_albums and search
+- **user_library.py**: Added eager loading for artist relationship in get_library
+- **import_service.py**: Disc number now uses metadata instead of hardcoded 1
+- **import_service.py**: Artwork extraction now tries embedded FLAC art during import (not just after beets fails)
+
+### Impact
+- Issue 1 (Thumbnails Missing): FIXED - embedded artwork extracted during import
+- Issue 2 (Artist Unknown): FIXED
+- Issue 3 (No Tracks): FIXED
+- Issue 4 (Play Broken): FIXED (depends on Issue 3)
+- Issue 7 (User Library Artist): FIXED
+- Issue 8 (Album Schema): FIXED
+- Issue 10 (Year/Genre): FIXED
+- Issue 11 (Disc Number): FIXED
+
+---
+
+## [0.1.74] - 2026-01-26
+
+### TL;DR
+- Full metadata audit: 12 critical issues identified in Qobuz download pipeline
+- Root causes found for missing thumbnails, unknown artists, no track lists, broken play
+
+### Added
+- docs/metadata-fix-popo.md - Complete audit report with fix plan
+
+### Audit Findings
+1. **Thumbnails missing** - _find_artwork() doesn't extract embedded art from FLAC files
+2. **Artist always "Unknown"** - ExifTool reads "Artist" but Qobuz uses "ALBUMARTIST"
+3. **No track list** - AlbumDetailResponse schema has no tracks field, API doesn't return them
+4. **Play broken** - Depends on issue 3 (no tracks = can't play)
+5. **Download tracking** - Data IS in database (Download model), WebSocket broken due to import mismatch (broadcast_progress vs broadcast_download_progress)
+6. **Delete no refresh** - Parent component doesn't refresh after card-level delete
+7. **User library artist** - get_library() doesn't eager load artist relationship
+8. **Album schema** - AlbumResponse missing artist_name field
+9. **Track schema** - TrackResponse missing artist context for player display
+10. **Year/Genre** - ExifTool may need DATE/ORIGINALDATE fallbacks
+11. **Disc number** - Hardcoded to 1, ignores metadata
+12. **Quality display** - None values cause "Nonekbps" display
+
+### Fix Priority
+- P0: Issues 2, 3 (blocks entire UX)
+- P1: Issues 1, 8, 9, 6
+- P2: Issues 7, 11, 10
+- P3: Issues 5, 12
+
+---
+
 ## [0.1.73] - 2026-01-26
 
 ### TL;DR

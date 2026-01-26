@@ -34,8 +34,9 @@ def download_qobuz_task(
         Dict with status and album_id
     """
     async def progress_callback(percent: int, speed: str, eta: str):
-        """Update download progress in database."""
+        """Update download progress in database and broadcast via WebSocket."""
         db = SessionLocal()
+        user_id = None
         try:
             from app.models.download import Download
             download = db.query(Download).filter(Download.id == download_id).first()
@@ -43,20 +44,24 @@ def download_qobuz_task(
                 download.progress = percent
                 download.speed = speed
                 download.eta = eta
+                user_id = download.user_id
                 db.commit()
         finally:
             db.close()
 
-        # Also broadcast via WebSocket if available
-        try:
-            from app.websocket import broadcast_progress
-            await broadcast_progress(download_id, {
-                "percent": percent,
-                "speed": speed,
-                "eta": eta
-            })
-        except Exception:
-            pass  # WebSocket not available
+        # Broadcast via WebSocket if we have user_id
+        if user_id:
+            try:
+                from app.websocket import broadcast_download_progress
+                await broadcast_download_progress(
+                    download_id=download_id,
+                    user_id=user_id,
+                    progress=percent,
+                    speed=speed,
+                    eta=eta
+                )
+            except Exception:
+                pass  # WebSocket not available
 
     async def run():
         db = SessionLocal()
@@ -114,8 +119,9 @@ def download_url_task(
         Dict with status and album_id
     """
     async def progress_callback(percent: int, speed: str, eta: str):
-        """Update download progress in database."""
+        """Update download progress in database and broadcast via WebSocket."""
         db = SessionLocal()
+        user_id = None
         try:
             from app.models.download import Download
             download = db.query(Download).filter(Download.id == download_id).first()
@@ -123,20 +129,24 @@ def download_url_task(
                 download.progress = percent
                 download.speed = speed
                 download.eta = eta
+                user_id = download.user_id
                 db.commit()
         finally:
             db.close()
 
-        # Also broadcast via WebSocket if available
-        try:
-            from app.websocket import broadcast_progress
-            await broadcast_progress(download_id, {
-                "percent": percent,
-                "speed": speed,
-                "eta": eta
-            })
-        except Exception:
-            pass
+        # Broadcast via WebSocket if we have user_id
+        if user_id:
+            try:
+                from app.websocket import broadcast_download_progress
+                await broadcast_download_progress(
+                    download_id=download_id,
+                    user_id=user_id,
+                    progress=percent,
+                    speed=speed,
+                    eta=eta
+                )
+            except Exception:
+                pass  # WebSocket not available
 
     async def run():
         db = SessionLocal()

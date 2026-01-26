@@ -3,7 +3,7 @@ import shutil
 import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from app.models.artist import Artist
 from app.models.album import Album
@@ -69,8 +69,8 @@ class LibraryService:
         page: int = 1,
         limit: int = 50
     ) -> Dict[str, Any]:
-        """List albums with optional filters."""
-        query = self.db.query(Album)
+        """List albums with optional filters and artist info."""
+        query = self.db.query(Album).options(joinedload(Album.artist))
 
         if artist_id:
             query = query.filter(Album.artist_id == artist_id)
@@ -100,9 +100,13 @@ class LibraryService:
         return self.db.query(Album).filter(Album.id == album_id).first()
 
     def get_album_tracks(self, album_id: int) -> List[Track]:
-        """Get all tracks for an album, ordered by disc and track number."""
+        """Get all tracks for an album, ordered by disc and track number.
+
+        Eager loads album and artist for player context.
+        """
         return (
             self.db.query(Track)
+            .options(joinedload(Track.album).joinedload(Album.artist))
             .filter(Track.album_id == album_id)
             .order_by(Track.disc_number, Track.track_number)
             .all()
@@ -133,6 +137,7 @@ class LibraryService:
         if search_type in ("all", "album"):
             results["albums"] = (
                 self.db.query(Album)
+                .options(joinedload(Album.artist))
                 .filter(Album.title.ilike(pattern))
                 .limit(limit)
                 .all()
@@ -141,6 +146,7 @@ class LibraryService:
         if search_type in ("all", "track"):
             results["tracks"] = (
                 self.db.query(Track)
+                .options(joinedload(Track.album).joinedload(Album.artist))
                 .filter(Track.title.ilike(pattern))
                 .limit(limit)
                 .all()

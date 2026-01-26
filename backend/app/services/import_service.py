@@ -122,7 +122,7 @@ class ImportService:
                 title=meta.get("title") or f"Track {i + 1}",
                 normalized_title=normalize_text(meta.get("title") or f"Track {i + 1}"),
                 track_number=meta.get("track_number") or (i + 1),
-                disc_number=1,
+                disc_number=meta.get("disc_number") or 1,
                 duration=meta.get("duration"),
                 path=meta.get("path") or str(path / f"track_{i + 1}"),
                 sample_rate=meta.get("sample_rate"),
@@ -327,12 +327,71 @@ class ImportService:
         return normalized
 
     def _find_artwork(self, path: Path) -> Optional[str]:
-        """Find album artwork in folder."""
+        """Find album artwork in folder, extracting from audio files if needed.
+
+        Checks for existing artwork files first, then tries to extract
+        embedded artwork from FLAC/MP3 files if no file exists.
+        """
+        # Check for existing artwork files
         artwork_names = ["cover.jpg", "cover.png", "folder.jpg", "folder.png", "artwork.jpg", "front.jpg"]
         for name in artwork_names:
             artwork_path = path / name
             if artwork_path.exists():
                 return str(artwork_path)
+
+        # Try to extract embedded artwork from audio files (Qobuz embeds art in FLAC)
+        extracted = self._extract_embedded_artwork_sync(path)
+        if extracted:
+            return extracted
+
+        return None
+
+    def _extract_embedded_artwork_sync(self, album_path: Path) -> Optional[str]:
+        """Extract embedded artwork from audio files (synchronous version).
+
+        Uses ffmpeg to extract cover art embedded in FLAC/MP3 files.
+        Qobuz downloads embed high-quality artwork in the audio files.
+
+        Args:
+            album_path: Path to album folder
+
+        Returns:
+            Path to extracted cover.jpg or None
+        """
+        import subprocess
+
+        audio_extensions = {".flac", ".mp3", ".m4a"}
+        audio_files = [f for f in album_path.iterdir() if f.suffix.lower() in audio_extensions]
+
+        if not audio_files:
+            return None
+
+        cover_path = album_path / "cover.jpg"
+
+        # Try ffmpeg to extract artwork from first few files
+        for audio_file in audio_files[:3]:
+            cmd = [
+                "ffmpeg", "-y", "-i", str(audio_file),
+                "-an", "-vcodec", "copy",
+                str(cover_path)
+            ]
+
+            try:
+                result = subprocess.run(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=30
+                )
+
+                if cover_path.exists() and cover_path.stat().st_size > 0:
+                    logger.info(f"Extracted embedded artwork from {audio_file.name}")
+                    return str(cover_path)
+            except subprocess.TimeoutExpired:
+                logger.warning(f"ffmpeg timeout extracting artwork from {audio_file}")
+            except Exception as e:
+                logger.debug(f"Failed to extract artwork from {audio_file}: {e}")
+
         return None
 
     async def fetch_artwork_if_missing(self, album: Album) -> Optional[str]:

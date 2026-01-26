@@ -49,11 +49,13 @@ class Track(Base):
     @property
     def quality_display(self) -> str:
         """Human-readable quality string."""
+        fmt = self.format or "Unknown"
         if self.is_lossy:
-            return f"{self.bitrate}kbps {self.format}"
+            bitrate = self.bitrate or 256  # Default assumption for lossy
+            return f"{bitrate}kbps {fmt}"
         if self.sample_rate and self.bit_depth:
-            return f"{self.bit_depth}/{self.sample_rate // 1000}kHz {self.format}"
-        return self.format or "Unknown"
+            return f"{self.bit_depth}/{self.sample_rate // 1000}kHz {fmt}"
+        return fmt
 
     def __repr__(self):
         return f"<Track {self.track_number}. {self.title}>"

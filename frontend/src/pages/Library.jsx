@@ -56,6 +56,7 @@ export default function Library() {
         <AlbumGrid
           albums={albums || []}
           onAlbumClick={handleAlbumClick}
+          onAlbumDelete={() => refetch()}
         />
       )}
 

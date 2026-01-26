@@ -74,6 +74,7 @@ def get_artist_albums(
         AlbumResponse(
             id=a.id,
             artist_id=a.artist_id,
+            artist_name=artist.name,
             title=a.title,
             year=a.year,
             path=a.path,
@@ -111,6 +112,7 @@ def list_albums(
         AlbumResponse(
             id=a.id,
             artist_id=a.artist_id,
+            artist_name=a.artist.name if a.artist else None,
             title=a.title,
             year=a.year,
             path=a.path,
@@ -137,7 +139,7 @@ def get_album(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Get album details."""
+    """Get album details with tracks."""
     service = LibraryService(db)
     user_lib = UserLibraryService(db)
 
@@ -147,9 +149,32 @@ def get_album(
 
     is_hearted = user_lib.is_album_hearted(user.id, album_id)
 
+    # Get tracks for this album
+    tracks = service.get_album_tracks(album_id)
+    hearted_track_ids = user_lib.get_hearted_track_ids(user.id)
+
+    track_list = [
+        {
+            "id": t.id,
+            "title": t.title,
+            "track_number": t.track_number,
+            "disc_number": t.disc_number,
+            "duration": t.duration,
+            "path": t.path,
+            "sample_rate": t.sample_rate,
+            "bit_depth": t.bit_depth,
+            "format": t.format,
+            "is_lossy": t.is_lossy,
+            "quality_display": t.quality_display,
+            "is_hearted": t.id in hearted_track_ids,
+        }
+        for t in tracks
+    ]
+
     return AlbumDetailResponse(
         id=album.id,
         artist_id=album.artist_id,
+        artist_name=album.artist.name,
         title=album.title,
         year=album.year,
         path=album.path,
@@ -159,6 +184,7 @@ def get_album(
         source=album.source,
         is_hearted=is_hearted,
         artist={"id": album.artist.id, "name": album.artist.name},
+        tracks=track_list,
         disc_count=album.disc_count,
         genre=album.genre,
         label=album.label,
@@ -236,6 +262,7 @@ def search(
             AlbumResponse(
                 id=a.id,
                 artist_id=a.artist_id,
+                artist_name=a.artist.name if a.artist else None,
                 title=a.title,
                 year=a.year,
                 path=a.path,
@@ -273,6 +300,7 @@ def get_user_library(
         AlbumResponse(
             id=a.id,
             artist_id=a.artist_id,
+            artist_name=a.artist.name if a.artist else None,
             title=a.title,
             year=a.year,
             path=a.path,

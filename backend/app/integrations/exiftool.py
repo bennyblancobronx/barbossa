@@ -24,10 +24,15 @@ class ExifToolClient:
         "FileSize",
         "FileType",
         "Artist",
+        "AlbumArtist",
         "Album",
         "Title",
         "TrackNumber",
+        "DiscNumber",
         "Year",
+        "Date",
+        "OriginalDate",
+        "Genre",
     ]
 
     AUDIO_EXTENSIONS = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aac", ".opus", ".wma"}
@@ -66,6 +71,16 @@ class ExifToolClient:
         file_type = data.get("FileType", path.suffix.lstrip(".")).upper()
         is_lossy = file_type.lower() in self.LOSSY_FORMATS
 
+        # Extract year from various tag formats (Qobuz uses DATE)
+        year = data.get("Year")
+        if not year:
+            date_str = data.get("Date") or data.get("OriginalDate") or ""
+            if date_str and len(str(date_str)) >= 4:
+                try:
+                    year = int(str(date_str)[:4])
+                except ValueError:
+                    year = None
+
         return {
             "sample_rate": data.get("SampleRate") or data.get("FLAC:SampleRate") or data.get("MPEG:SampleRate"),
             "bit_depth": data.get("BitsPerSample") or data.get("FLAC:BitsPerSample"),
@@ -75,11 +90,13 @@ class ExifToolClient:
             "file_size": data.get("FileSize") or path.stat().st_size,
             "format": file_type,
             "is_lossy": is_lossy,
-            "artist": data.get("Artist"),
+            "artist": data.get("AlbumArtist") or data.get("Artist"),
             "album": data.get("Album"),
             "title": data.get("Title"),
             "track_number": data.get("TrackNumber"),
-            "year": data.get("Year"),
+            "disc_number": data.get("DiscNumber") or 1,
+            "year": year,
+            "genre": data.get("Genre"),
             "path": str(path)
         }
 
@@ -153,7 +170,9 @@ class ExifToolClient:
             "album": None,
             "title": path.stem,
             "track_number": None,
+            "disc_number": 1,
             "year": None,
+            "genre": None,
             "path": str(path)
         }
 

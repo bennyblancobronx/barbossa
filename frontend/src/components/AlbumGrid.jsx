@@ -1,6 +1,6 @@
 import AlbumCard from './AlbumCard'
 
-export default function AlbumGrid({ albums, onAlbumClick }) {
+export default function AlbumGrid({ albums, onAlbumClick, onAlbumDelete }) {
   if (!albums.length) {
     return (
       <div className="empty-state">
@@ -16,6 +16,7 @@ export default function AlbumGrid({ albums, onAlbumClick }) {
           key={album.id}
           album={album}
           onClick={() => onAlbumClick(album)}
+          onDelete={onAlbumDelete}
         />
       ))}
     </div>

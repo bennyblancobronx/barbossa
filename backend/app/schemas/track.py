@@ -20,6 +20,11 @@ class TrackResponse(TrackBase):
     duration: Optional[int] = None
     path: Optional[str] = None
 
+    # Album/Artist context (for player display)
+    album_title: Optional[str] = None
+    artist_name: Optional[str] = None
+    artwork_path: Optional[str] = None
+
     # Quality
     sample_rate: Optional[int] = None
     bit_depth: Optional[int] = None
@@ -36,8 +41,14 @@ class TrackResponse(TrackBase):
     is_hearted: bool = False
 
     @classmethod
-    def from_orm_with_quality(cls, track, is_hearted: bool = False):
-        """Create response with computed quality display."""
+    def from_orm_with_quality(cls, track, is_hearted: bool = False, include_album: bool = True):
+        """Create response with computed quality display and album context.
+
+        Args:
+            track: Track ORM object
+            is_hearted: Whether user has hearted this track
+            include_album: Whether to include album/artist context (for player)
+        """
         data = {
             "id": track.id,
             "album_id": track.album_id,
@@ -56,4 +67,12 @@ class TrackResponse(TrackBase):
             "quality_display": track.quality_display,
             "is_hearted": is_hearted,
         }
+
+        # Include album/artist context for player display
+        if include_album and hasattr(track, 'album') and track.album:
+            data["album_title"] = track.album.title
+            data["artwork_path"] = track.album.artwork_path
+            if hasattr(track.album, 'artist') and track.album.artist:
+                data["artist_name"] = track.album.artist.name
+
         return cls(**data)

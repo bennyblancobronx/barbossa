@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import * as api from '../services/api'
 
-export default function AlbumCard({ album, onClick }) {
+export default function AlbumCard({ album, onClick, onDelete }) {
   const [isHearted, setIsHearted] = useState(album.is_hearted)
   const [isLoading, setIsLoading] = useState(false)
   const [showTrash, setShowTrash] = useState(false)
@@ -45,7 +45,10 @@ export default function AlbumCard({ album, onClick }) {
 
     try {
       await api.deleteAlbum(album.id)
-      // Parent should handle refresh
+      // Notify parent to refresh the list
+      if (onDelete) {
+        onDelete(album.id)
+      }
     } catch (error) {
       console.error('Delete failed:', error)
     }
