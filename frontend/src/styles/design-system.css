@@ -138,7 +138,7 @@
   --button-height-md: 44px;
   --button-height-lg: 52px;
   --input-height: 44px;
-  --row-height: 56px;
+  --row-height: 52px;  /* Braun data table spec */
   --card-padding: 16px;
   --icon-sm: 16px;
   --icon-md: 20px;

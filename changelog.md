@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.111] - 2026-01-26
+
+### TL;DR
+- Track row height adjusted to Braun spec (52px) making icons appear proportionally larger
+
+### Fixed
+- **design-system.css**: Changed `--row-height` from 56px to 52px per Braun data table spec
+- Track row heart and play icons (32px xl) now appear more prominent with tighter row height
+
+---
+
 ## [0.1.110] - 2026-01-26
 
 ### TL;DR
