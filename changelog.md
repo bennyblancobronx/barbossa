@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.112] - 2026-01-26
+
+### TL;DR
+- Auto-heart album when all its tracks are individually hearted
+
+### Added
+- **user_library.py**: `_check_auto_heart_album()` method checks if all tracks on album are hearted
+- When user hearts the final track on an album, album is automatically hearted too
+
+---
+
 ## [0.1.111] - 2026-01-26
 
 ### TL;DR

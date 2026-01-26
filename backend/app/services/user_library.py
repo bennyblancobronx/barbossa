@@ -161,7 +161,40 @@ class UserLibraryService:
         activity = ActivityService(self.db)
         activity.log(user_id, "heart", "track", track_id)
 
+        # Check if all tracks on the album are now hearted - auto-heart album
+        self._check_auto_heart_album(user_id, track.album_id, username)
+
         return True
+
+    def _check_auto_heart_album(self, user_id: int, album_id: int, username: str):
+        """Auto-heart album if all its tracks are individually hearted."""
+        from sqlalchemy import func
+
+        # Skip if album already hearted
+        if self.is_album_hearted(user_id, album_id):
+            return
+
+        # Get total track count for album
+        total_tracks = self.db.query(func.count(Track.id)).filter(
+            Track.album_id == album_id
+        ).scalar()
+
+        if total_tracks == 0:
+            return
+
+        # Get count of individually hearted tracks for this album
+        hearted_tracks = self.db.execute(
+            select(func.count(user_tracks.c.track_id))
+            .join(Track, Track.id == user_tracks.c.track_id)
+            .where(
+                user_tracks.c.user_id == user_id,
+                Track.album_id == album_id
+            )
+        ).scalar()
+
+        # If all tracks hearted, auto-heart the album
+        if hearted_tracks == total_tracks:
+            self.heart_album(user_id, album_id, username)
 
     def unheart_track(self, user_id: int, track_id: int, username: str) -> bool:
         """Unheart an individual track."""
