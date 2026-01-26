@@ -303,8 +303,14 @@ class UserLibraryService:
         return count
 
     def is_artist_hearted(self, user_id: int, artist_id: int) -> bool:
-        """Check if user has hearted at least one album by the artist."""
-        result = self.db.execute(
+        """Check if user has hearted content from this artist.
+
+        Returns True if user has:
+        - At least one hearted album by the artist, OR
+        - At least one hearted track from albums by this artist
+        """
+        # Check for hearted albums
+        album_result = self.db.execute(
             select(user_albums.c.album_id)
             .join(Album, Album.id == user_albums.c.album_id)
             .where(
@@ -312,16 +318,45 @@ class UserLibraryService:
                 Album.artist_id == artist_id
             )
         ).first()
-        return result is not None
+        if album_result:
+            return True
+
+        # Check for hearted tracks from this artist
+        track_result = self.db.execute(
+            select(user_tracks.c.track_id)
+            .join(Track, Track.id == user_tracks.c.track_id)
+            .join(Album, Track.album_id == Album.id)
+            .where(
+                user_tracks.c.user_id == user_id,
+                Album.artist_id == artist_id
+            )
+        ).first()
+        return track_result is not None
 
     def get_hearted_artist_ids(self, user_id: int) -> set:
-        """Get set of artist IDs where user has hearted at least one album."""
-        result = self.db.execute(
+        """Get set of artist IDs where user has hearted content.
+
+        Includes artists with hearted albums OR hearted tracks.
+        """
+        from sqlalchemy import union
+
+        # Artists from hearted albums
+        from_albums = (
             select(Album.artist_id)
-            .distinct()
             .join(user_albums, Album.id == user_albums.c.album_id)
             .where(user_albums.c.user_id == user_id)
-        ).fetchall()
+        )
+
+        # Artists from hearted tracks
+        from_tracks = (
+            select(Album.artist_id)
+            .join(Track, Track.album_id == Album.id)
+            .join(user_tracks, Track.id == user_tracks.c.track_id)
+            .where(user_tracks.c.user_id == user_id)
+        )
+
+        combined = union(from_albums, from_tracks)
+        result = self.db.execute(combined).fetchall()
         return {row[0] for row in result}
 
     def get_library_artists(
@@ -331,7 +366,11 @@ class UserLibraryService:
         page: int = 1,
         limit: int = 50
     ) -> Dict[str, Any]:
-        """Get artists in user's library (artists with at least one hearted album).
+        """Get artists in user's library.
+
+        Includes artists with:
+        - At least one hearted album, OR
+        - At least one hearted track
 
         Args:
             user_id: User ID
@@ -343,13 +382,30 @@ class UserLibraryService:
             Dict with items, total, page, limit, pages
         """
         from app.models.artist import Artist
+        from sqlalchemy import union, literal_column
 
-        # Get distinct artists from hearted albums
+        # Artist IDs from hearted albums
+        artists_from_albums = (
+            select(Album.artist_id.label('artist_id'))
+            .join(user_albums, Album.id == user_albums.c.album_id)
+            .where(user_albums.c.user_id == user_id)
+        )
+
+        # Artist IDs from hearted tracks (track -> album -> artist)
+        artists_from_tracks = (
+            select(Album.artist_id.label('artist_id'))
+            .join(Track, Track.album_id == Album.id)
+            .join(user_tracks, Track.id == user_tracks.c.track_id)
+            .where(user_tracks.c.user_id == user_id)
+        )
+
+        # Combine both sources
+        combined_ids = union(artists_from_albums, artists_from_tracks).subquery()
+
+        # Get artists matching the combined IDs
         query = (
             self.db.query(Artist)
-            .join(Album, Artist.id == Album.artist_id)
-            .join(user_albums, Album.id == user_albums.c.album_id)
-            .filter(user_albums.c.user_id == user_id)
+            .join(combined_ids, Artist.id == combined_ids.c.artist_id)
             .distinct()
         )
 
@@ -367,7 +423,7 @@ class UserLibraryService:
         items = query.offset((page - 1) * limit).limit(limit).all()
         pages = (total + limit - 1) // limit
 
-        # Mark all as hearted (they have at least one hearted album)
+        # Mark all as hearted
         for artist in items:
             artist.is_hearted = True
 
@@ -384,7 +440,11 @@ class UserLibraryService:
         user_id: int,
         artist_id: int
     ) -> list:
-        """Get user's hearted albums for a specific artist.
+        """Get user's library albums for a specific artist.
+
+        Includes albums that are:
+        - Hearted directly (in user_albums), OR
+        - Contain at least one hearted track (track in user_tracks)
 
         Args:
             user_id: User ID
@@ -393,21 +453,48 @@ class UserLibraryService:
         Returns:
             List of Album objects
         """
-        albums = (
-            self.db.query(Album)
-            .options(joinedload(Album.artist))
-            .join(user_albums, Album.id == user_albums.c.album_id)
-            .filter(
+        from sqlalchemy import union
+
+        # Get hearted album IDs for this user
+        hearted_album_ids = self.get_hearted_album_ids(user_id)
+
+        # Album IDs from hearted albums
+        albums_from_hearts = (
+            select(user_albums.c.album_id.label('album_id'))
+            .join(Album, Album.id == user_albums.c.album_id)
+            .where(
                 user_albums.c.user_id == user_id,
                 Album.artist_id == artist_id
             )
+        )
+
+        # Album IDs from hearted tracks
+        albums_from_tracks = (
+            select(Track.album_id.label('album_id'))
+            .join(Album, Track.album_id == Album.id)
+            .join(user_tracks, Track.id == user_tracks.c.track_id)
+            .where(
+                user_tracks.c.user_id == user_id,
+                Album.artist_id == artist_id
+            )
+        )
+
+        # Combine both sources
+        combined_ids = union(albums_from_hearts, albums_from_tracks).subquery()
+
+        # Get albums matching the combined IDs
+        albums = (
+            self.db.query(Album)
+            .options(joinedload(Album.artist))
+            .join(combined_ids, Album.id == combined_ids.c.album_id)
+            .filter(Album.artist_id == artist_id)
             .order_by(Album.year.desc(), Album.title)
             .all()
         )
 
-        # Mark all as hearted
+        # Mark heart status - album is hearted if in user_albums
         for album in albums:
-            album.is_hearted = True
+            album.is_hearted = album.id in hearted_album_ids
 
         return albums
 

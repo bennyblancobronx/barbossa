@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.109] - 2026-01-26
+
+### TL;DR
+- User Library now shows artists/albums with ANY hearted content (albums OR individual tracks)
+
+### Fixed
+- **user_library.py**: `get_library_artists()` now includes artists with hearted TRACKS, not just hearted albums
+- **user_library.py**: `get_library_artist_albums()` now includes albums containing hearted tracks
+- **user_library.py**: `is_artist_hearted()` and `get_hearted_artist_ids()` check both albums and tracks
+
+### Example
+If you heart just ONE song from an album:
+- That artist now appears in User Library Artists
+- That album now appears under that artist
+- The album shows the tracks (with heart status per-track)
+
+This matches the expected hierarchy: Artist -> Album -> Tracks, regardless of whether you hearted the full album or individual tracks.
+
+---
+
 ## [0.1.108] - 2026-01-26
 
 ### TL;DR
