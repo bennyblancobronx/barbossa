@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.103] - 2026-01-26
+
+### TL;DR
+- Fixed hearted tracks not appearing in User Library
+
+### Fixed
+- **UserLibrary.jsx**: Tracks query now always fetches (was only fetching when tracks tab active)
+- **TrackRow.jsx**: Added useEffect to sync local heart state from props (React state sync bug)
+- **AlbumCard.jsx**: Added useEffect to sync local heart state from props
+- **ArtistCard.jsx**: Added useEffect to sync local heart state from props
+- **AlbumModal.jsx**: Added useEffect to sync local heart state from refetched data
+
+### Technical
+- Root cause 1: Tracks query had `enabled: viewMode === 'tracks'` so count showed 0 until clicked
+- Root cause 2: useState only initializes on first render - if props change later, local state was stale
+- All card/row components now sync their isHearted state when the prop changes via useEffect
+
+---
+
 ## [0.1.102] - 2026-01-26
 
 ### TL;DR

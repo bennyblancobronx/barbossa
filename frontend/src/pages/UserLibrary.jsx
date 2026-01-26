@@ -29,7 +29,7 @@ export default function UserLibrary() {
   const { data: tracksData, isLoading: tracksLoading, refetch: refetchTracks } = useQuery(
     ['user-library-tracks', user?.id],
     () => api.getUserLibraryTracks().then(r => r.data),
-    { enabled: !!user?.id && viewMode === 'tracks' }
+    { enabled: !!user?.id }  // Always fetch to show correct count
   )
 
   const albums = data?.items || data?.albums || []

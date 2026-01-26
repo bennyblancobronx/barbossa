@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from 'react-query'
 import * as api from '../services/api'
 import { usePlayerStore } from '../stores/player'
@@ -9,6 +9,7 @@ export default function AlbumModal({ album, onClose }) {
   const [isArtworkHovered, setIsArtworkHovered] = useState(false)
   const [isHearted, setIsHearted] = useState(album.is_hearted)
   const [isHeartLoading, setIsHeartLoading] = useState(false)
+
   const fileInputRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -20,6 +21,11 @@ export default function AlbumModal({ album, onClose }) {
       staleTime: 0,  // Always refetch to get tracks
     }
   )
+
+  // Sync local state when album prop or fetched data changes
+  useEffect(() => {
+    setIsHearted(data?.is_hearted ?? album.is_hearted)
+  }, [data?.is_hearted, album.is_hearted, album.id])
 
   const play = usePlayerStore(state => state.play)
 

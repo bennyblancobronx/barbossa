@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQueryClient } from 'react-query'
 import * as api from '../services/api'
 import { usePlayerStore } from '../stores/player'
@@ -6,6 +6,11 @@ import { usePlayerStore } from '../stores/player'
 export default function TrackRow({ track, onPlay, showAlbumInfo = false, onHeart }) {
   const [isHearted, setIsHearted] = useState(track.is_hearted)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Sync local state when prop changes (e.g., after refetch)
+  useEffect(() => {
+    setIsHearted(track.is_hearted)
+  }, [track.is_hearted, track.id])
   const queryClient = useQueryClient()
 
   const { currentTrack, isPlaying, pause, resume } = usePlayerStore()

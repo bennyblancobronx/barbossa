@@ -1,10 +1,15 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQueryClient } from 'react-query'
 import * as api from '../services/api'
 
 export default function AlbumCard({ album, onClick, onDelete, onArtworkChange, onHeart }) {
   const [isHearted, setIsHearted] = useState(album.is_hearted)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Sync local state when prop changes (e.g., after refetch)
+  useEffect(() => {
+    setIsHearted(album.is_hearted)
+  }, [album.is_hearted, album.id])
   const queryClient = useQueryClient()
   const [showTrash, setShowTrash] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
