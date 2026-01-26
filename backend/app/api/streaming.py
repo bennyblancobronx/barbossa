@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_stream_user
 from app.services.library import LibraryService
 from app.models.user import User
 
@@ -15,7 +15,7 @@ router = APIRouter()
 def stream_track(
     track_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_stream_user),
 ):
     """Stream a track for preview playback."""
     service = LibraryService(db)

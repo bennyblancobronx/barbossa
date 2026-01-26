@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.95] - 2026-01-26
+
+### TL;DR
+- Fixed audio streaming 401 error - audio now plays correctly
+
+### Fixed
+- **dependencies.py**: Added get_stream_user dependency that accepts token from query param
+- **streaming.py**: Stream endpoint now uses get_stream_user for audio element compatibility
+- **Player.jsx**: Passes auth token as query parameter to stream URL
+- **TrackRow.jsx**: Removed debug console.log statements
+
+### Technical
+- Audio elements cannot send Authorization headers, so token must be passed as query param
+- Backend now accepts both header and query param authentication for streaming
+
+---
+
 ## [0.1.94] - 2026-01-26
 
 ### TL;DR

@@ -1,5 +1,6 @@
 """FastAPI dependencies for authentication."""
-from fastapi import Depends, HTTPException, status
+from typing import Optional
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -53,4 +54,49 @@ async def get_current_admin_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
+    return user
+
+
+async def get_stream_user(
+    token: Optional[str] = Query(None),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    """Get user for streaming - accepts token from query param or header.
+
+    Audio elements cannot send Authorization headers, so this accepts
+    the token as a query parameter for streaming endpoints.
+    """
+    # Try query parameter first (for audio element)
+    token_value = token
+
+    # Fall back to Authorization header
+    if not token_value and credentials:
+        token_value = credentials.credentials
+
+    if not token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    auth = AuthService(db)
+    user_id = auth.decode_token(token_value)
+
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = auth.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user

@@ -32,14 +32,12 @@ export default function TrackRow({ track, onPlay, showAlbumInfo = false }) {
   const handlePlayPause = (e) => {
     e.stopPropagation()
     if (isCurrentTrack) {
-      // Toggle play/pause for current track
       if (isPlaying) {
         pause()
       } else {
         resume()
       }
     } else {
-      // Play this track
       if (onPlay) onPlay()
     }
   }

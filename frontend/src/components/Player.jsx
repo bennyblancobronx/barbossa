@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { usePlayerStore } from '../stores/player'
+import { useAuthStore } from '../stores/auth'
 
 export default function Player() {
   const audioRef = useRef(null)
+  const token = useAuthStore(state => state.token)
   const {
     currentTrack,
     isPlaying,
@@ -18,15 +20,15 @@ export default function Player() {
   } = usePlayerStore()
 
   useEffect(() => {
-    if (!audioRef.current || !currentTrack) return
+    if (!audioRef.current || !currentTrack || !token) return
 
     const audio = audioRef.current
-    audio.src = `/api/tracks/${currentTrack.id}/stream`
+    audio.src = `/api/tracks/${currentTrack.id}/stream?token=${token}`
 
     if (isPlaying) {
-      audio.play().catch(console.error)
+      audio.play().catch(err => console.error('Play failed:', err))
     }
-  }, [currentTrack])
+  }, [currentTrack, token])
 
   useEffect(() => {
     if (!audioRef.current) return

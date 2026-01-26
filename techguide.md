@@ -249,7 +249,7 @@ Browse Qobuz catalog with artwork before downloading. Requires authentication.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/tracks/{track_id}/stream` | Stream audio file |
+| GET | `/api/tracks/{track_id}/stream` | Stream audio file (accepts `?token=` query param) |
 | GET | `/api/albums/{album_id}/artwork` | Get album artwork |
 | PUT | `/api/albums/{album_id}/artwork` | Update album artwork |
 | DELETE | `/api/albums/{album_id}/artwork` | Restore original album artwork |
