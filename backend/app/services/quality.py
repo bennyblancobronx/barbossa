@@ -4,6 +4,12 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
 
+try:
+    import blake3
+    HAS_BLAKE3 = True
+except ImportError:
+    HAS_BLAKE3 = False
+
 
 @dataclass
 class TrackQuality:
@@ -135,10 +141,49 @@ class QualityService:
         return "Unknown"
 
 
-def generate_checksum(file_path: Path) -> str:
-    """Generate SHA-256 checksum for integrity verification."""
-    sha256 = hashlib.sha256()
+def generate_checksum(file_path: Path, algorithm: str = "blake3") -> str:
+    """Generate checksum for integrity verification and deduplication.
+
+    Args:
+        file_path: Path to the file to hash
+        algorithm: Hash algorithm - "blake3" (default, faster) or "sha256" (fallback)
+
+    Returns:
+        Hex digest of the file contents
+
+    BLAKE3 benefits over SHA-256:
+        - 3-5x faster on single core
+        - Parallelizable across CPU cores
+        - Cryptographically secure
+        - Same 256-bit output length
+    """
+    if algorithm == "blake3" and HAS_BLAKE3:
+        hasher = blake3.blake3()
+        # BLAKE3 is optimized for larger chunks
+        chunk_size = 65536
+    else:
+        hasher = hashlib.sha256()
+        chunk_size = 8192
+
     with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            hasher.update(chunk)
+
+    return hasher.hexdigest()
+
+
+def verify_checksum(file_path: Path, expected: str) -> bool:
+    """Verify file integrity against stored checksum.
+
+    Args:
+        file_path: Path to the file to verify
+        expected: Expected checksum (hex digest)
+
+    Returns:
+        True if checksum matches, False otherwise
+    """
+    if not file_path.exists():
+        return False
+
+    actual = generate_checksum(file_path)
+    return actual == expected

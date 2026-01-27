@@ -118,8 +118,8 @@ export const cancelDownload = (id) =>
 export const searchQobuzCatalog = (query, type = 'album', limit = 20) =>
   api.get('/qobuz/search', { params: { q: query, type, limit } })
 
-export const getQobuzArtist = (artistId, sort = 'year') =>
-  api.get(`/qobuz/artist/${artistId}`, { params: { sort } })
+export const getQobuzArtist = (artistId, sort = 'year', explicitOnly = false) =>
+  api.get(`/qobuz/artist/${artistId}`, { params: { sort, explicit_only: explicitOnly } })
 
 export const getQobuzAlbum = (albumId) =>
   api.get(`/qobuz/album/${albumId}`)

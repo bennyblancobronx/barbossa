@@ -1,6 +1,6 @@
 """Maintenance tasks for Celery."""
+import asyncio
 import logging
-import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
 from celery import shared_task
@@ -8,6 +8,16 @@ from celery import shared_task
 from app.database import SessionLocal
 
 logger = logging.getLogger(__name__)
+
+
+def _get_event_loop():
+    """Get or create an event loop for async operations in Celery tasks."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop
 
 
 @shared_task(name="app.tasks.maintenance.cleanup_old_downloads")
@@ -58,20 +68,29 @@ def cleanup_old_downloads():
 
 
 @shared_task(name="app.tasks.maintenance.verify_integrity")
-def verify_integrity():
+def verify_integrity(include_flac_stream: bool = True):
     """Verify file integrity for all tracks.
 
     Checks:
     - File exists on disk
-    - Checksum matches (if stored)
+    - Checksum matches using BLAKE3 (if stored)
+    - FLAC stream verification via flac -t (if enabled)
+
+    Args:
+        include_flac_stream: If True, also verify FLAC files with flac -t
     """
     from app.models.track import Track
+    from app.services.quality import generate_checksum
+    from app.services.integrity import IntegrityService, IntegrityStatus
 
     db = SessionLocal()
 
-    try:
+    async def _verify_all():
+        integrity_service = IntegrityService()
         issues = []
         checked = 0
+        flac_verified = 0
+        flac_no_md5 = 0
 
         tracks = db.query(Track).all()
 
@@ -88,15 +107,10 @@ def verify_integrity():
                 })
                 continue
 
-            # Verify checksum if stored
+            # Verify checksum if stored (uses BLAKE3 via quality.py)
             if track.checksum:
                 try:
-                    sha256 = hashlib.sha256()
-                    with open(path, "rb") as f:
-                        for chunk in iter(lambda: f.read(8192), b""):
-                            sha256.update(chunk)
-
-                    current_hash = sha256.hexdigest()
+                    current_hash = generate_checksum(path)
 
                     if current_hash != track.checksum:
                         issues.append({
@@ -114,13 +128,64 @@ def verify_integrity():
                         "path": track.path
                     })
 
-        logger.info(f"Integrity check: {checked} tracks, {len(issues)} issues")
+            # FLAC stream verification (checks frame CRCs and embedded MD5)
+            if include_flac_stream and path.suffix.lower() == ".flac":
+                try:
+                    result = await integrity_service.verify_flac(path)
+
+                    if result.status == IntegrityStatus.FAILED:
+                        issues.append({
+                            "track_id": track.id,
+                            "issue": "flac_stream_corrupted",
+                            "message": result.message,
+                            "path": track.path
+                        })
+                    elif result.status == IntegrityStatus.OK:
+                        flac_verified += 1
+                    elif result.status == IntegrityStatus.NO_MD5:
+                        # Not an error, just informational (typical for Qobuz)
+                        flac_verified += 1
+                        flac_no_md5 += 1
+                    elif result.status == IntegrityStatus.ERROR:
+                        # flac command not installed or other error
+                        if "not installed" in (result.message or ""):
+                            # Log once and skip further FLAC checks
+                            logger.warning("flac command not installed - skipping stream verification")
+                            include_flac_stream = False
+                        else:
+                            issues.append({
+                                "track_id": track.id,
+                                "issue": "flac_check_error",
+                                "error": result.message,
+                                "path": track.path
+                            })
+                except Exception as e:
+                    issues.append({
+                        "track_id": track.id,
+                        "issue": "flac_check_error",
+                        "error": str(e),
+                        "path": track.path
+                    })
 
         return {
             "checked": checked,
+            "flac_verified": flac_verified,
+            "flac_no_md5": flac_no_md5,
             "issues_count": len(issues),
             "issues": issues[:100]  # Limit to first 100 issues
         }
+
+    try:
+        loop = _get_event_loop()
+        result = loop.run_until_complete(_verify_all())
+
+        logger.info(
+            f"Integrity check: {result['checked']} tracks, "
+            f"{result['flac_verified']} FLAC verified, "
+            f"{result['issues_count']} issues"
+        )
+
+        return result
 
     except Exception as e:
         logger.error(f"Integrity check failed: {e}")
@@ -383,9 +448,7 @@ def scan_library():
     - Updates metadata for existing tracks
     - Marks missing files as unavailable
     """
-    import asyncio
     from app.config import settings
-    from app.models.artist import Artist
     from app.models.album import Album
     from app.models.track import Track
     from app.services.import_service import ImportService
@@ -397,14 +460,6 @@ def scan_library():
     library_path = Path(settings.music_library)
     if not library_path.exists():
         return {"error": "Library path does not exist"}
-
-    def _get_event_loop():
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return loop
 
     async def scan():
         import_service = ImportService(db)

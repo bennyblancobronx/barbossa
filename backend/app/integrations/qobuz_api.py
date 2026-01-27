@@ -312,10 +312,13 @@ class QobuzAPI:
             "artist_id": str(artist.get("id", "")),
             "artist_name": artist.get("name", "Unknown"),
             "year": str(data.get("release_date_original", ""))[:4],
+            "release_date": data.get("release_date_original", ""),  # Full date for DB
             "track_count": data.get("tracks_count", 0),
             "duration": data.get("duration", 0),
             "label": data.get("label", {}).get("name", "") if isinstance(data.get("label"), dict) else "",
             "genre": data.get("genre", {}).get("name", "") if isinstance(data.get("genre"), dict) else "",
+            # Phase 7: UPC/barcode for deduplication and identification
+            "upc": data.get("upc", ""),
             # Quality info
             "hires": data.get("hires", False),
             "hires_streamable": data.get("hires_streamable", False),
@@ -328,6 +331,9 @@ class QobuzAPI:
             "artwork_url": image.get("large", ""),  # Default for compatibility
             # Qobuz URL for streamrip download
             "url": f"https://www.qobuz.com/{self._region}/album/{data.get('id', '')}",
+            # Popularity and parental warning
+            "popularity": data.get("popularity", 0),
+            "explicit": data.get("parental_warning", False),
         }
 
     def _parse_artist(self, data: dict) -> dict:
@@ -362,6 +368,10 @@ class QobuzAPI:
             "album_title": album.get("title", ""),
             "album_artwork": album_image.get("thumbnail", ""),  # For track search results
             "artist_name": performer.get("name", "Unknown"),
+            # Phase 7: ISRC (International Standard Recording Code)
+            "isrc": data.get("isrc", ""),
+            # Phase 7: Explicit/parental warning flag
+            "explicit": data.get("parental_warning", False),
             # Quality
             "hires": data.get("hires", False),
             "maximum_bit_depth": data.get("maximum_bit_depth", 16),

@@ -40,6 +40,9 @@ class AlbumResult(BaseModel):
     artwork_large: str
     artwork_url: str
     url: str
+    # Popularity and explicit
+    popularity: int = 0
+    explicit: bool = False
     # Library status
     in_library: bool = False
     local_album_id: Optional[int] = None
@@ -173,7 +176,8 @@ async def search_qobuz(
 @router.get("/artist/{artist_id}", response_model=ArtistDetailResponse)
 async def get_qobuz_artist(
     artist_id: str,
-    sort: str = Query("year", pattern="^(year|title)$"),
+    sort: str = Query("year", pattern="^(year|title|popularity)$"),
+    explicit_only: bool = Query(False, description="Show only explicit albums"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -191,11 +195,17 @@ async def get_qobuz_artist(
         if artist.get("albums"):
             artist["albums"] = check_albums_in_library(db, artist["albums"])
 
+            # Filter explicit only
+            if explicit_only:
+                artist["albums"] = [a for a in artist["albums"] if a.get("explicit", False)]
+
             # Sort albums
             if sort == "year":
                 artist["albums"].sort(key=lambda a: a.get("year", ""), reverse=True)
             elif sort == "title":
                 artist["albums"].sort(key=lambda a: a.get("title", "").lower())
+            elif sort == "popularity":
+                artist["albums"].sort(key=lambda a: a.get("popularity", 0), reverse=True)
 
         return ArtistDetailResponse(
             id=artist["id"],

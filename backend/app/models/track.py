@@ -1,5 +1,5 @@
 """Track model."""
-from sqlalchemy import Column, Integer, String, Boolean, BigInteger, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, BigInteger, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -9,6 +9,9 @@ class Track(Base):
     """Individual track with quality metadata."""
 
     __tablename__ = "tracks"
+    __table_args__ = (
+        UniqueConstraint('album_id', 'disc_number', 'track_number', name='uq_track_album_position'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     album_id = Column(Integer, ForeignKey("albums.id", ondelete="CASCADE"), nullable=False)
@@ -34,11 +37,16 @@ class Track(Base):
     source_quality = Column(String(100))  # "24/192 FLAC", "320kbps MP3"
 
     # Integrity
-    checksum = Column(String(64))  # SHA-256
+    checksum = Column(String(64))  # BLAKE3 hash
 
     # Metadata
     lyrics = Column(Text)
     musicbrainz_id = Column(String(36))
+
+    # Extended metadata
+    isrc = Column(String(12), index=True)  # International Standard Recording Code
+    composer = Column(String(255))  # Important for classical music
+    explicit = Column(Boolean, default=False)  # Parental advisory flag
 
     imported_at = Column(DateTime(timezone=True), server_default=func.now())
     imported_by = Column(Integer, ForeignKey("users.id"))

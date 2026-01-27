@@ -70,7 +70,14 @@ class BeetsClient:
         return await self._identify_cli(path)
 
     async def _identify_api(self, path: Path) -> Dict[str, Any]:
-        """Identify using beets Python API."""
+        """Identify using beets Python API.
+
+        Returns comprehensive metadata including MusicBrainz IDs for:
+        - Album (release ID, release group ID)
+        - Artist (artist ID)
+        - Tracks (recording ID, track ID, ISRC)
+        - Label and catalog number
+        """
         try:
             from beets import autotag
             from beets.autotag import mb
@@ -108,16 +115,50 @@ class BeetsClient:
 
                     if candidates_list:
                         best = candidates_list[0]
+                        info = best.info
                         # Calculate confidence from distance (lower = better match)
                         confidence = max(0, 1.0 - (best.distance / 0.5))
 
+                        # Extract track-level MusicBrainz data
+                        track_data = []
+                        if hasattr(best, 'mapping') and best.mapping:
+                            for item, track_info in best.mapping.items():
+                                track_data.append({
+                                    "title": track_info.title if hasattr(track_info, 'title') else None,
+                                    "musicbrainz_track_id": getattr(track_info, 'track_id', None),
+                                    "musicbrainz_recording_id": getattr(track_info, 'recording_id', None),
+                                    "isrc": getattr(track_info, 'isrc', None),
+                                    "track_number": getattr(track_info, 'index', None),
+                                    "disc_number": getattr(track_info, 'medium', 1),
+                                    "length": getattr(track_info, 'length', None),
+                                })
+
                         return {
-                            "artist": best.info.artist or local_artist,
-                            "album": best.info.album or local_album,
-                            "year": best.info.year or local_year,
+                            # Core identification
+                            "artist": info.artist or local_artist,
+                            "album": info.album or local_album,
+                            "year": info.year or local_year,
                             "confidence": confidence,
                             "tracks": len(audio_files),
-                            "musicbrainz_id": best.info.album_id if hasattr(best.info, 'album_id') else None
+
+                            # MusicBrainz IDs (album/release level)
+                            "musicbrainz_album_id": getattr(info, 'album_id', None),
+                            "musicbrainz_artist_id": getattr(info, 'artist_id', None),
+                            "musicbrainz_release_group_id": getattr(info, 'releasegroup_id', None),
+
+                            # Additional metadata from MusicBrainz
+                            "label": getattr(info, 'label', None),
+                            "catalog_number": getattr(info, 'catalognum', None),
+                            "country": getattr(info, 'country', None),
+                            "release_type": getattr(info, 'albumtype', None),
+                            "media": getattr(info, 'media', None),
+                            "disctotal": getattr(info, 'mediums', None),
+
+                            # Track-level MusicBrainz data
+                            "track_data": track_data if track_data else None,
+
+                            # Legacy field for backwards compatibility
+                            "musicbrainz_id": getattr(info, 'album_id', None),
                         }
                 except Exception as e:
                     logger.warning(f"MusicBrainz lookup failed: {e}")
@@ -129,12 +170,22 @@ class BeetsClient:
                     "album": local_album or path.name,
                     "year": local_year,
                     "confidence": 0.6 if local_artist and local_album else 0.4,
-                    "tracks": len(audio_files)
+                    "tracks": len(audio_files),
+                    "musicbrainz_album_id": None,
+                    "musicbrainz_artist_id": None,
+                    "label": None,
+                    "catalog_number": None,
+                    "track_data": None,
                 }
 
             # Fall back to folder name parsing
             folder_info = self._parse_folder_name(path.name)
             folder_info["tracks"] = len(audio_files)
+            folder_info["musicbrainz_album_id"] = None
+            folder_info["musicbrainz_artist_id"] = None
+            folder_info["label"] = None
+            folder_info["catalog_number"] = None
+            folder_info["track_data"] = None
             return folder_info
 
         except Exception as e:
@@ -142,7 +193,11 @@ class BeetsClient:
             return await self._identify_cli(path)
 
     async def _identify_cli(self, path: Path) -> Dict[str, Any]:
-        """Identify using beets CLI (fallback)."""
+        """Identify using beets CLI (fallback).
+
+        Note: CLI fallback cannot extract MusicBrainz IDs as reliably as
+        the API. Fields are set to None for consistency.
+        """
         cmd = [
             "beet", "import",
             "--pretend",
@@ -165,6 +220,16 @@ class BeetsClient:
                 identification["year"] = identification.get("year") or folder_info.get("year")
                 if identification["confidence"] == 0:
                     identification["confidence"] = 0.5
+
+        # Ensure consistent fields for CLI fallback
+        identification.setdefault("musicbrainz_album_id", None)
+        identification.setdefault("musicbrainz_artist_id", None)
+        identification.setdefault("musicbrainz_release_group_id", None)
+        identification.setdefault("label", None)
+        identification.setdefault("catalog_number", None)
+        identification.setdefault("country", None)
+        identification.setdefault("release_type", None)
+        identification.setdefault("track_data", None)
 
         return identification
 
@@ -508,7 +573,22 @@ class BeetsClient:
         Format: "Artist - Album (Year) [Format] [Quality]"
         Example: "Joni Mitchell - Blue (1971) [FLAC] [24B-192kHz]"
         """
-        result = {"artist": None, "album": None, "year": None, "confidence": 0.5}
+        result = {
+            "artist": None,
+            "album": None,
+            "year": None,
+            "confidence": 0.5,
+            "tracks": 0,
+            # MusicBrainz fields (None for folder name parsing)
+            "musicbrainz_album_id": None,
+            "musicbrainz_artist_id": None,
+            "musicbrainz_release_group_id": None,
+            "label": None,
+            "catalog_number": None,
+            "country": None,
+            "release_type": None,
+            "track_data": None,
+        }
 
         # Remove format/quality brackets from end
         clean_name = re.sub(r'\s*\[.*?\]\s*$', '', name)

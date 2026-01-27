@@ -1,5 +1,403 @@
 # Changelog
 
+## [0.1.131] - 2026-01-26
+
+### TL;DR
+- Phase 8 enhancements: REST API, scheduled task, auto-enrich on import
+
+### Added
+- **api/enrichment.py**: REST API endpoints for enrichment
+  - GET /enrichment/stats - get enrichment statistics
+  - POST /enrichment/album/{id} - enrich album lyrics
+  - POST /enrichment/track/{id} - enrich single track
+  - POST /enrichment/batch - batch enrich missing lyrics
+  - GET /enrichment/tracks/missing-lyrics - list tracks without lyrics
+- **worker.py**: Weekly scheduled task "enrich-missing-lyrics" (Saturdays 2 AM, 500 tracks)
+- **services/import_service.py**: enrich_on_import parameter (default True)
+  - Automatically triggers lyrics enrichment after successful import
+
+### Changed
+- **api/__init__.py**: Added enrichment router
+- **worker.py**: Added app.tasks.enrichment to include list
+- **worker.py**: Added enrichment task routing to maintenance queue
+
+---
+
+## [0.1.130] - 2026-01-26
+
+### TL;DR
+- Phase 8 complete: Post-import enrichment pipeline with lyrics fetching
+
+### Added
+- **services/enrichment.py**: New EnrichmentService for post-import metadata enrichment
+- **services/enrichment.py**: fetch_lyrics_lrclib() - fetches lyrics from LRCLIB.net (free, no API key)
+- **services/enrichment.py**: enrich_track_lyrics() - enriches single track with lyrics
+- **services/enrichment.py**: enrich_album_lyrics() - enriches all tracks in an album
+- **services/enrichment.py**: enrich_missing_lyrics() - batch enrich tracks missing lyrics
+- **services/enrichment.py**: get_enrichment_stats() - statistics for missing metadata
+- **tasks/enrichment.py**: Celery tasks for background enrichment
+- **tasks/enrichment.py**: enrich_album_lyrics_task - background album lyrics enrichment
+- **tasks/enrichment.py**: enrich_missing_lyrics_task - batch background enrichment
+- **tasks/enrichment.py**: enrich_track_lyrics_task - single track enrichment
+- **tasks/enrichment.py**: get_enrichment_stats_task - get enrichment statistics
+
+### Enrichment Service Features
+- LRCLIB.net integration (free lyrics API, no API key required)
+- Supports exact match and fuzzy search fallback
+- Rate limiting with 0.5s delay between requests
+- Returns both enriched count and per-track results
+- Statistics endpoint shows lyrics coverage percentage
+
+---
+
+## [0.1.129] - 2026-01-26
+
+### TL;DR
+- Phase 7 complete: Qobuz metadata enrichment (label, genre, UPC, ISRC)
+
+### Added
+- **services/download.py**: _merge_qobuz_metadata() - merges Qobuz API data with track metadata
+- **services/download.py**: _fetch_qobuz_album_metadata() - fetches album details from Qobuz API before import
+- **integrations/qobuz_api.py**: _parse_album() now includes UPC and release_date fields
+- **integrations/qobuz_api.py**: _parse_track() now includes ISRC and explicit fields
+
+### Changed
+- **services/download.py**: download_qobuz() now pre-fetches Qobuz metadata before downloading
+- **services/download.py**: _import_album() accepts qobuz_metadata parameter for enrichment
+- **services/import_service.py**: import_album() now stores UPC from merged Qobuz data
+- **services/import_service.py**: replace_album() now updates UPC if not already set
+
+### Qobuz Metadata Enrichment Flow
+1. Before download: fetch album details from Qobuz API
+2. Extract: label, genre, UPC, explicit flag, per-track ISRC
+3. After beets merge: merge Qobuz data (Qobuz is authoritative for these fields)
+4. Store in database: album.upc, album.label, album.genre, track.isrc, track.explicit
+
+---
+
+## [0.1.128] - 2026-01-26
+
+### TL;DR
+- Maintenance task now uses BLAKE3 and FLAC stream verification
+
+### Fixed
+- **tasks/maintenance.py**: verify_integrity() now uses BLAKE3 via generate_checksum() instead of inline SHA-256
+- **tasks/maintenance.py**: verify_integrity() now includes FLAC stream verification via IntegrityService
+
+### Changed
+- **tasks/maintenance.py**: Added include_flac_stream parameter to verify_integrity() (default True)
+- **tasks/maintenance.py**: Moved _get_event_loop() to module level for reuse
+- **tasks/maintenance.py**: Removed duplicate asyncio import from scan_library()
+
+### Integrity Check Enhancements
+- Checksum verification uses BLAKE3 (3-5x faster than SHA-256)
+- FLAC files verified with `flac -t` for frame CRC and embedded MD5 checks
+- NO_MD5 status tracked separately (typical for Qobuz files)
+- Returns flac_verified and flac_no_md5 counts in result
+
+---
+
+## [0.1.127] - 2026-01-26
+
+### TL;DR
+- Phase 6 complete: File integrity verification via flac -t
+
+### Added
+- **services/integrity.py**: New IntegrityService for file verification
+- **services/integrity.py**: verify_flac() - uses `flac -t` for FLAC stream testing
+- **services/integrity.py**: verify_album() - verifies all audio files in directory
+- **services/integrity.py**: IntegrityStatus enum (OK, FAILED, SKIPPED, NO_MD5, ERROR)
+- **services/integrity.py**: IntegrityResult and AlbumIntegrityResult dataclasses
+
+### Changed
+- **services/import_service.py**: Added verify_integrity parameter (default True)
+- **services/import_service.py**: Integrity check runs after content dupe check, before metadata validation
+- **services/import_service.py**: Failed integrity raises ImportError with details
+- **services/import_service.py**: Missing MD5 (Qobuz) logged as debug, not error (INT-004)
+
+### Integrity Check Flow
+1. After checksum generation and content dupe check
+2. Run `flac -t` on all FLAC files
+3. If FAILED: raise ImportError (corrupted files)
+4. If NO_MD5: log debug (typical for Qobuz, frame CRCs still verified)
+5. If ERROR: log warning (flac not installed), continue import
+
+---
+
+## [0.1.126] - 2026-01-26
+
+### TL;DR
+- Phase 5 caller integration: DuplicateContentError now handled in download, watcher, tasks
+
+### Fixed
+- **services/download.py**: Import DuplicateContentError and handle in both download_qobuz() and download_url()
+- **watcher.py**: Import DuplicateContentError and handle before generic Exception handler
+- **tasks/imports.py**: Import DuplicateContentError and handle in both process_import() and process_review()
+
+### Behavior Change
+- Content duplicates now properly set status=DUPLICATE instead of FAILED
+- Content duplicates now link to existing album ID for user reference
+- Watcher moves content duplicates to review queue with descriptive note
+
+---
+
+## [0.1.125] - 2026-01-26
+
+### TL;DR
+- Phase 5 complete: Content-based deduplication via BLAKE3 checksums
+
+### Added
+- **services/import_service.py**: DuplicateContentError exception for content duplicate detection
+- **services/import_service.py**: find_duplicate_by_checksum() - finds existing albums by track checksums
+- **services/import_service.py**: find_all_duplicate_tracks() - returns all tracks matching given checksums
+- **services/import_service.py**: generate_track_checksums() - pre-computes checksums for all audio files
+- **services/import_service.py**: compare_duplicate_quality() - compares quality of new vs existing album
+- **services/import_service.py**: AUDIO_EXTENSIONS constant for audio file detection
+
+### Changed
+- **services/import_service.py**: import_album() now generates checksums FIRST (before DB operations)
+- **services/import_service.py**: import_album() checks content duplicates BEFORE metadata duplicates
+- **services/import_service.py**: import_album() uses pre-computed checksums for efficiency
+- **services/import_service.py**: import_album() adds check_content_dupe parameter (default True)
+
+### Content-Based Deduplication Flow
+1. Generate BLAKE3 checksums for all tracks upfront
+2. Query database for matching checksums
+3. If match found, raise DuplicateContentError (caller decides: replace/skip/review)
+4. compare_duplicate_quality() helps decide based on sample rate/bit depth
+
+---
+
+## [0.1.124] - 2026-01-26
+
+### TL;DR
+- Phase 4 complete: Artist metadata (country from MusicBrainz, biography from Qobuz)
+
+### Changed
+- **services/download.py**: _merge_beets_identification() now passes artist_country from MusicBrainz
+- **services/import_service.py**: import_album() now passes country to _get_or_create_artist()
+- **services/import_service.py**: fetch_artist_image_from_qobuz() now also stores artist biography
+- **watcher.py**: merge_beets_identification() now passes artist_country
+- **tasks/imports.py**: merge_beets_identification() now passes artist_country
+
+### Artist Metadata Now Captured
+- biography: From Qobuz API (stored when fetching artist image)
+- country: From MusicBrainz via beets (ISO 3166-1 alpha-2 code)
+
+---
+
+## [0.1.123] - 2026-01-26
+
+### TL;DR
+- Phase 3 complete: Beets integration now returns full MusicBrainz data and merges with ExifTool metadata
+
+### Changed
+- **integrations/beets.py**: _identify_api() now returns musicbrainz_album_id, musicbrainz_artist_id, musicbrainz_release_group_id
+- **integrations/beets.py**: _identify_api() now returns label, catalog_number, country, release_type, media, disctotal
+- **integrations/beets.py**: _identify_api() now returns track_data with per-track MusicBrainz IDs and ISRC
+- **integrations/beets.py**: _identify_cli() and _parse_folder_name() return consistent fields for fallback cases
+- **services/download.py**: Added _merge_beets_identification() to merge beets MB data with ExifTool metadata
+- **watcher.py**: Added merge_beets_identification() helper and integrated into import flow
+- **tasks/imports.py**: Added merge_beets_identification() helper and integrated into run_import and process_review
+
+### Beets Identification Now Returns
+- Album: musicbrainz_album_id, musicbrainz_artist_id, musicbrainz_release_group_id, label, catalog_number, country, release_type
+- Track (via track_data): musicbrainz_track_id, musicbrainz_recording_id, isrc, track_number, disc_number
+
+---
+
+## [0.1.122] - 2026-01-26
+
+### TL;DR
+- Phase 2+3+4 complete: ExifTool metadata extraction and import_service now capture all extended metadata
+
+### Changed
+- **integrations/exiftool.py**: Added 20+ new tags (ISRC, Composer, Lyrics, MusicBrainz IDs, Label, etc.)
+- **integrations/exiftool.py**: Added _normalize_metadata() with format prefix handling (FLAC:, ID3:, Vorbis:)
+- **integrations/exiftool.py**: Added _normalize_isrc() for standard ISRC format validation
+- **integrations/exiftool.py**: Added _parse_track_number() and _parse_disc_number() for "3/12" format handling
+- **services/import_service.py**: import_album() now stores genre, label, catalog_number, musicbrainz_id on Album
+- **services/import_service.py**: import_album() now stores lyrics, isrc, composer, explicit, musicbrainz_id on Track
+- **services/import_service.py**: Added _calculate_disc_count() helper
+- **services/import_service.py**: Added _detect_compilation() helper (>3 unique artists = compilation)
+- **services/import_service.py**: _get_or_create_artist() now accepts and stores MusicBrainz ID
+- **services/import_service.py**: replace_album() now includes extended track metadata
+
+### Metadata Now Captured
+- Album: genre, label, catalog_number, musicbrainz_id, disc_count, is_compilation
+- Track: lyrics, isrc, composer, explicit, musicbrainz_id
+- Artist: musicbrainz_id (when available from embedded tags)
+
+---
+
+## [0.1.121] - 2026-01-26
+
+### TL;DR
+- Phase 1 complete: Database schema for extended metadata (4 migrations, 4 models updated)
+
+### Added
+- **Migration 014**: Track columns - isrc (indexed), composer, explicit
+- **Migration 015**: Artist columns - biography, country
+- **Migration 016**: Album columns - upc (indexed), release_type
+- **Migration 017**: ImportHistory checksum column (indexed) for content-based dedup
+
+### Changed
+- **models/track.py**: Added isrc, composer, explicit columns
+- **models/artist.py**: Added biography, country columns
+- **models/album.py**: Added upc, release_type columns
+- **models/import_history.py**: Added checksum column
+
+---
+
+## [0.1.120] - 2026-01-26
+
+### TL;DR
+- Complete metadata implementation plan with industry best practices research; 40+ implementation items
+
+### Research Added (Part 8 of audit-014)
+- **DDEX Standards**: ERN 4.3.x format, ISRC/ISWC/UPC hierarchy
+- **Tagging Standards**: Vorbis Comments for FLAC (never ID3), ID3v2.4 for MP3
+- **Tag Mapping**: Full Vorbis-to-ID3-to-DB column mapping from Picard docs
+- **FLAC Integrity**: Native MD5 in STREAMINFO, Qobuz files missing MD5 (known issue)
+- **Deduplication Strategy**: File hash > Audio hash > Fingerprint > Metadata (in order)
+
+### Implementation Guides Added
+- **8.7**: ExifTool extraction with _normalize_metadata() and _normalize_isrc()
+- **8.8**: Beets integration returning full MusicBrainz data + track-level IDs
+- **8.9**: Content-based deduplication with quality comparison
+- **8.10**: FLAC integrity verification service using flac -t
+
+### Checklist Expanded
+- 8 phases, 35+ implementation items (DB-001 to OPT-004)
+- Validation checklist for testing completeness
+- Sources linked for all research
+
+### Planned (Part 7 of audit-014)
+- **Migrations 014-017**: track columns, artist columns, album columns, import_history index
+- **ExifTool extraction**: Genre, Lyrics, ISRC, Composer, Label, MusicBrainz IDs
+- **Import service**: Content-based dedup, compilation detection, disc_count
+- **Beets integration**: Return MusicBrainz album/track/artist IDs
+- **Qobuz capture**: Label, genre, UPC, ISRC per track
+- **Integrity service**: FLAC MD5 verification (optional, warns on Qobuz)
+
+---
+
+## [0.1.119] - 2026-01-26
+
+### TL;DR
+- Comprehensive metadata audit documented; switched to BLAKE3 hashes for faster checksums
+
+### Added
+- **docs/audit-014-metadata-integrity.md**: Full audit checklist with 40+ items
+- **services/quality.py**: `verify_checksum()` helper function
+- **requirements.txt**: blake3==0.4.1 package
+
+### Changed
+- **services/quality.py**: `generate_checksum()` now uses BLAKE3 (3-5x faster than SHA-256)
+- BLAKE3 falls back to SHA-256 if package not installed
+
+### Documented
+- Metadata capture gaps: genre, label, musicbrainz_id, lyrics not being stored
+- Content-based dedup not implemented (checksums stored but not compared)
+- ExifTool tags to add: ISRC, Composer, Label, MusicBrainzAlbumId, etc.
+- Coding guide for new developers added to audit doc
+
+---
+
+## [0.1.118] - 2026-01-26
+
+### TL;DR
+- Root cause analysis: Added metadata validation to prevent "Unknown Artist" and "Track 01" imports
+
+### Added
+- **import_service.py**: `validate_metadata()` function with strict validation rules
+- **import_service.py**: `MetadataValidationError` exception for failed validation
+- **import_service.py**: `INVALID_ARTIST_PATTERNS` and `INVALID_TRACK_PATTERNS` constants
+
+### Changed
+- **import_service.py**: `import_album()` now validates metadata before import (default: strict=True)
+- **download.py**: Pre-validates metadata before beets import, routes failures to review queue
+- **download.py**: `_move_to_review()` now accepts `note` parameter for validation failure details
+- **watcher.py**: Pre-validates metadata before auto-import
+- **tasks/imports.py**: Pre-validates metadata before celery task import
+
+### Root Cause Analysis
+- **Why "Unknown Artist" from Qobuz**: Qobuz downloads bypassed confidence check (min_confidence=0.0), and metadata fallback was silent
+- **Why "Track 01" names**: Direct fallback to generic names with no validation
+- **Why MusicBrainz didn't catch it**: Lookup requires existing metadata; skipped if tags missing
+- **Fix**: Validation now rejects invalid patterns before import, routes to review queue with specific failure reason
+
+---
+
+## [0.1.117] - 2026-01-26
+
+### TL;DR
+- Added track-level de-dupe protection after Deltron 3030 duplicate tracks investigation
+
+### Added
+- **alembic/versions/013_track_unique_constraint.py**: Unique constraint on (album_id, disc_number, track_number)
+- **models/track.py**: Added UniqueConstraint to prevent duplicate track positions
+
+### Fixed
+- Deltron 3030 album: Removed 6 duplicate track records and files
+- Duplicate album "I Hope You're Happy" by Blue October cleaned up
+
+---
+
+## [0.1.116] - 2026-01-26
+
+### TL;DR
+- Implemented all 3 library sync fixes: artist auto-heart, master library updates, de-dupe constraint
+
+### Added
+- **alembic/versions/011_user_artists.py**: Migration for user_artists table
+- **alembic/versions/012_album_unique_constraint.py**: Migration for de-dupe constraint
+- **models/user_artists.py**: New model for persistent artist subscriptions
+- **import_service.py**: `auto_heart_for_followers()` method for auto-adding new albums
+
+### Changed
+- **models/album.py**: Added UniqueConstraint on (artist_id, normalized_title)
+- **user_library.py**: `heart_artist()` now persists to user_artists table with auto_add_new flag
+- **user_library.py**: `unheart_artist()` removes from user_artists table
+- **user_library.py**: Added `get_users_following_artist()` and `is_following_artist()` methods
+- **import_service.py**: Added IntegrityError handling for de-dupe race condition
+- **tasks/imports.py**: Added broadcast_library_update and auto_heart_for_followers calls
+- **watcher.py**: Added broadcast_library_update and auto_heart_for_followers calls
+
+### Fixed
+- Artist auto-heart now subscribes user to future albums from that artist
+- Master library updates now broadcast to all connected clients
+- De-dupe race condition prevented by database constraint
+
+---
+
+## [0.1.115] - 2026-01-26
+
+### TL;DR
+- Audit: documented 3 bugs in library sync system (artist auto-heart, master library updates, de-dupe race condition)
+
+### Added
+- **docs/bugfix-spec-011-library-sync.md**: Full spec for fixing:
+  1. Artist auto-heart not adding future albums to user libraries
+  2. Master library broadcast_library_update() never called
+  3. De-dupe race condition allows duplicate album imports
+
+---
+
+## [0.1.114] - 2026-01-26
+
+### TL;DR
+- Qobuz artist page: added popularity sort and explicit-only filter
+
+### Added
+- **qobuz_api.py**: Capture `popularity` and `parental_warning` fields from Qobuz API
+- **qobuz.py**: Added `popularity` and `explicit` fields to AlbumResult schema
+- **qobuz.py**: Added `explicit_only` query param and `popularity` sort option to artist endpoint
+- **QobuzArtist.jsx**: Added "Most Popular" sort option and "Explicit Only" checkbox
+- **api.js**: Updated `getQobuzArtist` to pass `explicitOnly` parameter
+
+---
+
 ## [0.1.113] - 2026-01-26
 
 ### TL;DR

@@ -15,7 +15,8 @@ celery_app = Celery(
     include=[
         "app.tasks.downloads",
         "app.tasks.imports",
-        "app.tasks.maintenance"
+        "app.tasks.maintenance",
+        "app.tasks.enrichment"
     ]
 )
 
@@ -33,6 +34,7 @@ celery_app.conf.update(
         "app.tasks.downloads.*": {"queue": "downloads"},
         "app.tasks.imports.*": {"queue": "imports"},
         "app.tasks.maintenance.*": {"queue": "maintenance"},
+        "app.tasks.enrichment.*": {"queue": "maintenance"},
     },
 
     # Task execution settings
@@ -113,6 +115,15 @@ celery_app.conf.update(
         "cleanup-empty-folders": {
             "task": "app.tasks.maintenance.cleanup_empty_folders",
             "schedule": crontab(day_of_week=0, hour=5, minute=0),
+            "options": {"queue": "maintenance"}
+        },
+
+        # Enrich missing lyrics weekly on Saturday at 2 AM
+        # Processes up to 500 tracks per run
+        "enrich-missing-lyrics": {
+            "task": "app.tasks.enrichment.enrich_missing_lyrics",
+            "schedule": crontab(day_of_week=6, hour=2, minute=0),
+            "args": [500],  # limit=500
             "options": {"queue": "maintenance"}
         },
     }

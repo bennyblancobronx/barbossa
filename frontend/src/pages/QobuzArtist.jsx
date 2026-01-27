@@ -11,10 +11,11 @@ export default function QobuzArtist() {
   const { addNotification } = useNotificationStore()
 
   const [sortBy, setSortBy] = useState('year')
+  const [explicitOnly, setExplicitOnly] = useState(false)
 
   const { data: artist, isLoading, error } = useQuery(
-    ['qobuz-artist', artistId, sortBy],
-    () => api.getQobuzArtist(artistId, sortBy).then(r => r.data),
+    ['qobuz-artist', artistId, sortBy, explicitOnly],
+    () => api.getQobuzArtist(artistId, sortBy, explicitOnly).then(r => r.data),
     { enabled: !!artistId }
   )
 
@@ -102,7 +103,16 @@ export default function QobuzArtist() {
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
               <option value="year">Year (newest first)</option>
               <option value="title">Title (A-Z)</option>
+              <option value="popularity">Most Popular</option>
             </select>
+            <label className="filter-toggle">
+              <input
+                type="checkbox"
+                checked={explicitOnly}
+                onChange={(e) => setExplicitOnly(e.target.checked)}
+              />
+              Explicit Only
+            </label>
           </div>
         </div>
 

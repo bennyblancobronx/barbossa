@@ -20,6 +20,7 @@ class ImportHistory(Base):
     track_normalized = Column(String(255), index=True)
     source = Column(String(50), nullable=False)
     quality_score = Column(Integer)  # sample_rate * 100 + bit_depth
+    checksum = Column(String(64), index=True)  # BLAKE3 hash for content-based dedup
     track_id = Column(Integer, ForeignKey("tracks.id", ondelete="SET NULL"))
     album_id = Column(Integer, ForeignKey("albums.id", ondelete="SET NULL"))
     import_date = Column(DateTime(timezone=True), server_default=func.now())

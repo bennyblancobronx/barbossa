@@ -295,6 +295,22 @@ Browse Qobuz catalog with artwork before downloading. Requires authentication.
 | GET | `/api/lidarr/queue` | Get Lidarr download queue |
 | POST | `/api/lidarr/search` | Trigger Lidarr search |
 
+### Enrichment
+
+Post-import metadata enrichment for tracks missing lyrics.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/enrichment/stats` | Get enrichment statistics (total tracks, missing lyrics count, coverage %) |
+| POST | `/api/enrichment/album/{id}` | Enrich all tracks in album with lyrics |
+| POST | `/api/enrichment/track/{id}` | Enrich single track with lyrics |
+| POST | `/api/enrichment/batch` | Batch enrich tracks missing lyrics (accepts `limit` param) |
+| GET | `/api/enrichment/tracks/missing-lyrics` | List tracks without lyrics (accepts `limit`, `offset` params) |
+
+**Source:** LRCLIB.net (free, no API key required)
+
+**Scheduled Task:** Weekly lyrics enrichment runs Saturdays at 2 AM (processes up to 500 tracks per run).
+
 ### WebSocket
 
 Connect: `ws://localhost:8080/ws?token=<jwt>`
@@ -928,6 +944,114 @@ class LidarrService:
             )
             return response.json().get("records", [])
 ```
+
+### 9. Enrichment Service
+
+Post-import lyrics enrichment using LRCLIB.net (free, no API key required).
+
+```python
+import httpx
+from typing import Optional
+from dataclasses import dataclass
+
+@dataclass
+class LyricsResult:
+    plain: Optional[str]
+    synced: Optional[str]  # LRC format with timestamps
+    source: str
+
+class EnrichmentService:
+    LRCLIB_BASE = "https://lrclib.net/api"
+
+    async def fetch_lyrics_lrclib(
+        self,
+        track_name: str,
+        artist_name: str,
+        album_name: Optional[str] = None,
+        duration: Optional[int] = None
+    ) -> Optional[LyricsResult]:
+        """Fetch lyrics from LRCLIB.net (free, no API key)."""
+        async with httpx.AsyncClient(timeout=10) as client:
+            # Try exact match first
+            params = {
+                "track_name": track_name,
+                "artist_name": artist_name,
+            }
+            if album_name:
+                params["album_name"] = album_name
+            if duration:
+                params["duration"] = duration
+
+            response = await client.get(f"{self.LRCLIB_BASE}/get", params=params)
+
+            if response.status_code == 200:
+                data = response.json()
+                return LyricsResult(
+                    plain=data.get("plainLyrics"),
+                    synced=data.get("syncedLyrics"),
+                    source="lrclib"
+                )
+
+            # Fallback to search if exact match fails
+            search_response = await client.get(
+                f"{self.LRCLIB_BASE}/search",
+                params={"q": f"{artist_name} {track_name}"}
+            )
+
+            if search_response.status_code == 200:
+                results = search_response.json()
+                if results:
+                    best = results[0]
+                    return LyricsResult(
+                        plain=best.get("plainLyrics"),
+                        synced=best.get("syncedLyrics"),
+                        source="lrclib"
+                    )
+
+            return None
+
+    async def enrich_track_lyrics(self, track_id: int) -> bool:
+        """Enrich a single track with lyrics."""
+        track = db.get_track(track_id)
+        if not track or track.lyrics:
+            return False
+
+        lyrics = await self.fetch_lyrics_lrclib(
+            track_name=track.title,
+            artist_name=track.album.artist.name,
+            album_name=track.album.title,
+            duration=track.duration
+        )
+
+        if lyrics and (lyrics.plain or lyrics.synced):
+            track.lyrics = lyrics.synced or lyrics.plain
+            track.lyrics_source = lyrics.source
+            db.commit()
+            return True
+
+        return False
+
+    async def enrich_missing_lyrics(self, limit: int = 100) -> dict:
+        """Batch enrich tracks missing lyrics."""
+        tracks = db.query(Track).filter(Track.lyrics.is_(None)).limit(limit).all()
+        enriched = 0
+
+        for track in tracks:
+            if await self.enrich_track_lyrics(track.id):
+                enriched += 1
+            await asyncio.sleep(0.5)  # Rate limiting
+
+        return {"total": len(tracks), "enriched": enriched}
+```
+
+**Celery Tasks:**
+- `enrich_album_lyrics_task(album_id)` - Enrich all tracks in album
+- `enrich_track_lyrics_task(track_id)` - Enrich single track
+- `enrich_missing_lyrics_task(limit)` - Batch enrich missing lyrics
+
+**Scheduled Task:** Weekly enrichment runs Saturdays 2 AM (500 tracks/run).
+
+**Auto-Enrich on Import:** When `enrich_on_import=True` (default), newly imported albums automatically queue for lyrics enrichment.
 
 ---
 

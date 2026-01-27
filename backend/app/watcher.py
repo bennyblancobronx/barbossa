@@ -11,16 +11,67 @@ from watchdog.events import FileSystemEventHandler, DirCreatedEvent
 
 from app.config import settings
 from app.database import SessionLocal
-from app.services.import_service import ImportService
+from app.services.import_service import ImportService, DuplicateContentError
 from app.integrations.beets import BeetsClient
 from app.integrations.exiftool import ExifToolClient
 from app.integrations.plex import trigger_plex_scan
-from app.websocket import broadcast_import_complete, broadcast_review_needed
+from app.websocket import broadcast_import_complete, broadcast_review_needed, broadcast_library_update
 
 logger = logging.getLogger(__name__)
 
 # Audio file extensions
 AUDIO_EXTENSIONS = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff", ".alac"}
+
+
+def merge_beets_identification(
+    tracks_metadata: list[dict],
+    identification: dict
+) -> list[dict]:
+    """Merge beets identification data with ExifTool metadata.
+
+    Beets/MusicBrainz is authoritative for MusicBrainz IDs and ISRC codes.
+    ExifTool is authoritative for audio quality and embedded lyrics/composer.
+    """
+    # Merge album-level data into first track
+    if tracks_metadata:
+        first_track = tracks_metadata[0]
+
+        if identification.get("musicbrainz_album_id") and not first_track.get("musicbrainz_album_id"):
+            first_track["musicbrainz_album_id"] = identification["musicbrainz_album_id"]
+
+        if identification.get("musicbrainz_artist_id") and not first_track.get("musicbrainz_artist_id"):
+            first_track["musicbrainz_artist_id"] = identification["musicbrainz_artist_id"]
+
+        if identification.get("label") and not first_track.get("label"):
+            first_track["label"] = identification["label"]
+
+        if identification.get("catalog_number") and not first_track.get("catalog_number"):
+            first_track["catalog_number"] = identification["catalog_number"]
+
+        # Artist country from MusicBrainz (ISO 3166-1 alpha-2)
+        if identification.get("country") and not first_track.get("artist_country"):
+            first_track["artist_country"] = identification["country"]
+
+    # Merge track-level MusicBrainz data
+    beets_tracks = identification.get("track_data") or []
+    for meta in tracks_metadata:
+        track_num = meta.get("track_number")
+        disc_num = meta.get("disc_number", 1)
+
+        beets_track = next(
+            (t for t in beets_tracks
+             if t.get("track_number") == track_num
+             and t.get("disc_number", 1) == disc_num),
+            None
+        )
+
+        if beets_track:
+            if beets_track.get("musicbrainz_track_id") and not meta.get("musicbrainz_track_id"):
+                meta["musicbrainz_track_id"] = beets_track["musicbrainz_track_id"]
+            if beets_track.get("isrc") and not meta.get("isrc"):
+                meta["isrc"] = beets_track["isrc"]
+
+    return tracks_metadata
 
 
 class ImportWatcher(FileSystemEventHandler):
@@ -101,9 +152,29 @@ class ImportWatcher(FileSystemEventHandler):
 
             # High confidence - auto import
             if confidence >= self.auto_import_confidence:
+                # Pre-validate metadata before import
+                tracks_metadata_raw = await exiftool.get_album_metadata(folder)
+                is_valid, issues = import_service.validate_metadata(
+                    tracks_metadata_raw,
+                    folder_name=folder.name,
+                    strict=True
+                )
+
+                if not is_valid:
+                    logger.info(f"Metadata validation failed: {issues}")
+                    await self._move_to_review(
+                        folder,
+                        identification,
+                        f"Metadata validation failed: {'; '.join(issues)}"
+                    )
+                    return
+
                 # Check for duplicates
+                artist = identification.get("artist") or (
+                    tracks_metadata_raw[0].get("artist") if tracks_metadata_raw else ""
+                )
                 existing = import_service.find_duplicate(
-                    identification.get("artist", ""),
+                    artist,
                     identification.get("album", "")
                 )
 
@@ -119,13 +190,16 @@ class ImportWatcher(FileSystemEventHandler):
                 # Import
                 library_path = await beets.import_album(folder, move=True)
                 tracks_metadata = await exiftool.get_album_metadata(library_path)
+                # Merge MusicBrainz data from beets identification
+                tracks_metadata = merge_beets_identification(tracks_metadata, identification)
 
                 album = await import_service.import_album(
                     path=library_path,
                     tracks_metadata=tracks_metadata,
                     source="import",
                     source_url="",
-                    confidence=confidence
+                    confidence=confidence,
+                    validate=False  # Already validated above
                 )
 
                 logger.info(f"Imported album ID {album.id}: {album.title}")
@@ -133,7 +207,7 @@ class ImportWatcher(FileSystemEventHandler):
                 # Trigger Plex scan
                 await trigger_plex_scan(str(library_path.parent))
 
-                # Broadcast completion
+                # Broadcast import complete
                 await broadcast_import_complete(
                     album_id=album.id,
                     album_title=album.title,
@@ -141,11 +215,30 @@ class ImportWatcher(FileSystemEventHandler):
                     source="import"
                 )
 
+                # Broadcast library update for UI refresh
+                await broadcast_library_update("album", album.id, "created")
+
+                # Auto-heart for users following this artist
+                auto_hearted = await import_service.auto_heart_for_followers(album)
+                if auto_hearted > 0:
+                    logger.info(f"Auto-hearted album {album.id} for {auto_hearted} users")
+
             else:
                 # Low confidence - move to review
                 logger.info(f"Low confidence ({confidence:.0%}), moving to review")
                 await self._move_to_review(folder, identification)
 
+        except DuplicateContentError as e:
+            # Content-based duplicate detected via checksum matching
+            logger.info(
+                f"Content duplicate: {e.matching_checksums}/{e.total_tracks} tracks "
+                f"match existing album '{e.existing_album.title}' (ID: {e.existing_album.id})"
+            )
+            await self._move_to_review(
+                folder,
+                identification,
+                f"Content duplicate: {e.matching_checksums}/{e.total_tracks} tracks match album ID {e.existing_album.id}"
+            )
         except Exception as e:
             logger.error(f"Import error for {folder}: {e}")
             # Move to review on error

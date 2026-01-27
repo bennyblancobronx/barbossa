@@ -13,26 +13,56 @@ class ExifToolClient:
     - Bit depth (16, 24)
     - Bitrate (for lossy)
     - Format (FLAC, MP3, etc.)
+    - Extended metadata (ISRC, composer, lyrics, MusicBrainz IDs)
     """
 
     AUDIO_TAGS = [
-        "SampleRate",
-        "BitsPerSample",
-        "AudioBitrate",
-        "NumChannels",
-        "Duration",
-        "FileSize",
-        "FileType",
-        "Artist",
-        "AlbumArtist",
-        "Album",
+        # Core identification
         "Title",
+        "Artist",
+        "Album",
+        "AlbumArtist",
         "TrackNumber",
         "DiscNumber",
         "Year",
         "Date",
         "OriginalDate",
+
+        # Quality metadata
+        "SampleRate",
+        "BitsPerSample",
+        "AudioBitrate",
+        "NumChannels",
+        "AudioChannels",
+        "Duration",
+        "FileSize",
+        "FileType",
+
+        # Extended metadata
         "Genre",
+        "Composer",
+        "Label",
+        "Publisher",
+        "CatalogNumber",
+        "ISRC",
+        "Compilation",
+        "ContentRating",
+        "Explicit",
+
+        # Lyrics (multiple possible tags)
+        "Lyrics",
+        "UnsyncedLyrics",
+        "USLT",
+
+        # MusicBrainz IDs
+        "MusicBrainz Album Id",
+        "MusicBrainz Track Id",
+        "MusicBrainz Artist Id",
+        "MusicBrainz Release Group Id",
+        "MusicBrainz Album Artist Id",
+        "MUSICBRAINZ_ALBUMID",
+        "MUSICBRAINZ_TRACKID",
+        "MUSICBRAINZ_ARTISTID",
     ]
 
     AUDIO_EXTENSIONS = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aac", ".opus", ".wma"}
@@ -68,37 +98,153 @@ class ExifToolClient:
             # Fallback to basic info
             return self._basic_metadata(path)
 
+        return self._normalize_metadata(data, path)
+
+    def _normalize_metadata(self, data: dict, path: Path) -> dict:
+        """Normalize ExifTool output to consistent field names.
+
+        Handles format prefixes (FLAC:, ID3:, Vorbis:) and extracts
+        all available metadata fields.
+        """
+        def get_first(*keys):
+            """Get first non-empty value from multiple possible tag names."""
+            for key in keys:
+                # Try exact match
+                if key in data and data[key]:
+                    return data[key]
+                # Try with format prefix (FLAC:, ID3:, Vorbis:, QuickTime:)
+                for prefix in ["FLAC:", "ID3:", "Vorbis:", "QuickTime:", "MPEG:"]:
+                    prefixed = f"{prefix}{key}"
+                    if prefixed in data and data[prefixed]:
+                        return data[prefixed]
+            return None
+
         file_type = data.get("FileType", path.suffix.lstrip(".")).upper()
         is_lossy = file_type.lower() in self.LOSSY_FORMATS
 
         # Extract year from various tag formats (Qobuz uses DATE)
-        year = data.get("Year")
+        year = get_first("Year")
         if not year:
-            date_str = data.get("Date") or data.get("OriginalDate") or ""
+            date_str = get_first("Date", "OriginalDate") or ""
             if date_str and len(str(date_str)) >= 4:
                 try:
                     year = int(str(date_str)[:4])
                 except ValueError:
                     year = None
 
+        # Extract lyrics from multiple possible tags
+        lyrics = get_first("Lyrics", "UnsyncedLyrics", "USLT")
+
+        # Extract MusicBrainz IDs (various tag names used)
+        mb_track_id = get_first(
+            "MusicBrainz Track Id",
+            "MUSICBRAINZ_TRACKID",
+            "MusicBrainzTrackId"
+        )
+        mb_album_id = get_first(
+            "MusicBrainz Album Id",
+            "MUSICBRAINZ_ALBUMID",
+            "MusicBrainzAlbumId"
+        )
+        mb_artist_id = get_first(
+            "MusicBrainz Artist Id",
+            "MUSICBRAINZ_ARTISTID",
+            "MusicBrainzArtistId"
+        )
+
+        # Detect compilation
+        compilation_raw = get_first("Compilation")
+        is_compilation = compilation_raw in ["1", "true", True, 1]
+
+        # Detect explicit content
+        explicit_raw = get_first("ContentRating", "Explicit")
+        is_explicit = (
+            explicit_raw == "Explicit" or
+            explicit_raw in ["1", "true", True, 1]
+        )
+
         return {
-            "sample_rate": data.get("SampleRate") or data.get("FLAC:SampleRate") or data.get("MPEG:SampleRate"),
-            "bit_depth": data.get("BitsPerSample") or data.get("FLAC:BitsPerSample"),
-            "bitrate": data.get("AudioBitrate") or data.get("MPEG:AudioBitrate"),
-            "channels": data.get("NumChannels") or data.get("AudioChannels") or 2,
-            "duration": int(data.get("Duration", 0)),
-            "file_size": data.get("FileSize") or path.stat().st_size,
+            # Core
+            "title": get_first("Title"),
+            "artist": get_first("AlbumArtist", "Artist"),
+            "album": get_first("Album"),
+            "album_artist": get_first("AlbumArtist"),
+            "track_number": self._parse_track_number(get_first("TrackNumber")),
+            "disc_number": self._parse_disc_number(get_first("DiscNumber")) or 1,
+            "year": year,
+
+            # Quality
+            "sample_rate": get_first("SampleRate"),
+            "bit_depth": get_first("BitsPerSample"),
+            "bitrate": get_first("AudioBitrate"),
+            "channels": get_first("NumChannels", "AudioChannels") or 2,
+            "duration": int(get_first("Duration") or 0),
+            "file_size": get_first("FileSize") or path.stat().st_size,
             "format": file_type,
             "is_lossy": is_lossy,
-            "artist": data.get("AlbumArtist") or data.get("Artist"),
-            "album": data.get("Album"),
-            "title": data.get("Title"),
-            "track_number": data.get("TrackNumber"),
-            "disc_number": data.get("DiscNumber") or 1,
-            "year": year,
-            "genre": data.get("Genre"),
+
+            # Extended metadata
+            "genre": get_first("Genre"),
+            "composer": get_first("Composer"),
+            "label": get_first("Label", "Publisher"),
+            "catalog_number": get_first("CatalogNumber"),
+            "isrc": self._normalize_isrc(get_first("ISRC")),
+            "is_compilation": is_compilation,
+            "explicit": is_explicit,
+
+            # Lyrics
+            "lyrics": lyrics,
+
+            # MusicBrainz IDs
+            "musicbrainz_track_id": mb_track_id,
+            "musicbrainz_album_id": mb_album_id,
+            "musicbrainz_artist_id": mb_artist_id,
+
+            # Path
             "path": str(path)
         }
+
+    def _normalize_isrc(self, isrc: str) -> str | None:
+        """Normalize ISRC to standard format (no hyphens, uppercase).
+
+        ISRC format: CC-XXX-YY-NNNNN (12 characters when normalized)
+        """
+        if not isrc:
+            return None
+        # Remove hyphens, spaces, uppercase
+        normalized = str(isrc).replace("-", "").replace(" ", "").upper()
+        # Validate: should be 12 characters
+        if len(normalized) == 12:
+            return normalized
+        return None
+
+    def _parse_track_number(self, value) -> int | None:
+        """Parse track number from various formats (e.g., '3/12' or '3')."""
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        value_str = str(value)
+        if "/" in value_str:
+            value_str = value_str.split("/")[0]
+        try:
+            return int(value_str)
+        except ValueError:
+            return None
+
+    def _parse_disc_number(self, value) -> int | None:
+        """Parse disc number from various formats (e.g., '1/2' or '1')."""
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        value_str = str(value)
+        if "/" in value_str:
+            value_str = value_str.split("/")[0]
+        try:
+            return int(value_str)
+        except ValueError:
+            return None
 
     async def get_album_metadata(self, path: Path) -> list[dict]:
         """Extract metadata from all audio files in folder.
@@ -158,6 +304,16 @@ class ExifToolClient:
     def _basic_metadata(self, path: Path) -> dict:
         """Return basic metadata when exiftool fails."""
         return {
+            # Core
+            "title": path.stem,
+            "artist": None,
+            "album": None,
+            "album_artist": None,
+            "track_number": None,
+            "disc_number": 1,
+            "year": None,
+
+            # Quality
             "sample_rate": None,
             "bit_depth": None,
             "bitrate": None,
@@ -166,13 +322,25 @@ class ExifToolClient:
             "file_size": path.stat().st_size if path.exists() else 0,
             "format": path.suffix.lstrip(".").upper(),
             "is_lossy": path.suffix.lower().lstrip(".") in self.LOSSY_FORMATS,
-            "artist": None,
-            "album": None,
-            "title": path.stem,
-            "track_number": None,
-            "disc_number": 1,
-            "year": None,
+
+            # Extended metadata
             "genre": None,
+            "composer": None,
+            "label": None,
+            "catalog_number": None,
+            "isrc": None,
+            "is_compilation": False,
+            "explicit": False,
+
+            # Lyrics
+            "lyrics": None,
+
+            # MusicBrainz IDs
+            "musicbrainz_track_id": None,
+            "musicbrainz_album_id": None,
+            "musicbrainz_artist_id": None,
+
+            # Path
             "path": str(path)
         }
 

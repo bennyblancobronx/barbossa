@@ -1,5 +1,5 @@
 """Album model."""
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -9,6 +9,9 @@ class Album(Base):
     """Album in the master library."""
 
     __tablename__ = "albums"
+    __table_args__ = (
+        UniqueConstraint('artist_id', 'normalized_title', name='uq_album_artist_title'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     artist_id = Column(Integer, ForeignKey("artists.id", ondelete="CASCADE"), nullable=False)
@@ -24,6 +27,11 @@ class Album(Base):
     label = Column(String(255))
     catalog_number = Column(String(100))
     musicbrainz_id = Column(String(36))
+
+    # Extended metadata
+    upc = Column(String(13), index=True)  # Universal Product Code / barcode
+    release_type = Column(String(20))  # album, single, ep, compilation, soundtrack, live
+
     source = Column(String(50), index=True)  # qobuz, lidarr, youtube, bandcamp, import
     source_url = Column(String(1000))
     is_compilation = Column(Boolean, default=False)

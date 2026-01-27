@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.api import (
     auth, library, streaming, downloads, websocket,
     admin, review, torrentleech, exports, lidarr,
-    artwork, metadata, settings, search, qobuz
+    artwork, metadata, settings, search, qobuz, enrichment
 )
 
 api_router = APIRouter()
@@ -32,6 +32,9 @@ api_router.include_router(qobuz.router, tags=["qobuz"])
 
 # Exports
 api_router.include_router(exports.router, tags=["exports"])
+
+# Enrichment
+api_router.include_router(enrichment.router, tags=["enrichment"])
 
 # Search
 api_router.include_router(search.router, tags=["search"])

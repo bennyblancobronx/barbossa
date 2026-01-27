@@ -1,13 +1,17 @@
 """User library service for managing hearted albums/tracks."""
-from typing import Dict, Any, Optional
+import logging
+from typing import Dict, Any, Optional, List, Tuple
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import insert, delete, select
+from sqlalchemy import insert, delete, select, update
 from app.models.user import User
 from app.models.album import Album
 from app.models.track import Track
 from app.models.user_library import user_albums, user_tracks
+from app.models.user_artists import user_artists
 from app.services.symlink import SymlinkService
 from app.services.activity import ActivityService
+
+logger = logging.getLogger(__name__)
 
 
 class UserLibraryService:
@@ -338,14 +342,51 @@ class UserLibraryService:
         result = self.db.execute(combined).fetchall()
         return {row[0] for row in result}
 
-    def heart_artist(self, user_id: int, artist_id: int, username: str) -> int:
-        """Heart all albums by an artist. Returns count of newly hearted albums."""
+    def heart_artist(self, user_id: int, artist_id: int, username: str, auto_add_new: bool = True) -> int:
+        """Heart all albums by an artist and subscribe to new releases.
+
+        Args:
+            user_id: User ID
+            artist_id: Artist ID
+            username: Username for symlinks
+            auto_add_new: If True, auto-add future albums (default True)
+
+        Returns:
+            Count of newly hearted albums
+        """
         from app.models.artist import Artist
 
         artist = self.db.query(Artist).filter(Artist.id == artist_id).first()
         if not artist:
             raise ValueError("Artist not found")
 
+        # Add/update user_artists subscription
+        existing = self.db.execute(
+            select(user_artists).where(
+                user_artists.c.user_id == user_id,
+                user_artists.c.artist_id == artist_id
+            )
+        ).first()
+
+        if not existing:
+            self.db.execute(
+                insert(user_artists).values(
+                    user_id=user_id,
+                    artist_id=artist_id,
+                    auto_add_new=auto_add_new
+                )
+            )
+        else:
+            # Update auto_add_new setting
+            self.db.execute(
+                update(user_artists).where(
+                    user_artists.c.user_id == user_id,
+                    user_artists.c.artist_id == artist_id
+                ).values(auto_add_new=auto_add_new)
+            )
+        self.db.commit()
+
+        # Heart all existing albums
         albums = self.db.query(Album).filter(Album.artist_id == artist_id).all()
         count = 0
         for album in albums:
@@ -357,23 +398,36 @@ class UserLibraryService:
 
         # Log activity for artist
         activity = ActivityService(self.db)
-        activity.log(user_id, "heart", "artist", artist_id, {"album_count": count})
+        activity.log(user_id, "heart", "artist", artist_id, {"album_count": count, "auto_add_new": auto_add_new})
 
         return count
 
     def unheart_artist(self, user_id: int, artist_id: int, username: str) -> int:
-        """Unheart all albums by an artist. Returns count of unhearted albums."""
+        """Unheart all albums by an artist and unsubscribe from new releases.
+
+        Returns count of unhearted albums.
+        """
         from app.models.artist import Artist
 
         artist = self.db.query(Artist).filter(Artist.id == artist_id).first()
         if not artist:
             raise ValueError("Artist not found")
 
+        # Remove from user_artists subscription
+        self.db.execute(
+            delete(user_artists).where(
+                user_artists.c.user_id == user_id,
+                user_artists.c.artist_id == artist_id
+            )
+        )
+
         albums = self.db.query(Album).filter(Album.artist_id == artist_id).all()
         count = 0
         for album in albums:
             if self.unheart_album(user_id, album.id, username):
                 count += 1
+
+        self.db.commit()
 
         # Log activity for artist
         activity = ActivityService(self.db)
@@ -608,3 +662,33 @@ class UserLibraryService:
             "limit": limit,
             "pages": pages,
         }
+
+    def get_users_following_artist(self, artist_id: int) -> List[Tuple[int, str]]:
+        """Get all users who have auto_add_new=True for an artist.
+
+        Args:
+            artist_id: Artist ID
+
+        Returns:
+            List of (user_id, username) tuples
+        """
+        result = self.db.execute(
+            select(User.id, User.username)
+            .join(user_artists, User.id == user_artists.c.user_id)
+            .where(
+                user_artists.c.artist_id == artist_id,
+                user_artists.c.auto_add_new == True
+            )
+        ).fetchall()
+        return [(row[0], row[1]) for row in result]
+
+    def is_following_artist(self, user_id: int, artist_id: int) -> bool:
+        """Check if user is subscribed to auto-add new albums from artist."""
+        result = self.db.execute(
+            select(user_artists).where(
+                user_artists.c.user_id == user_id,
+                user_artists.c.artist_id == artist_id,
+                user_artists.c.auto_add_new == True
+            )
+        ).first()
+        return result is not None
