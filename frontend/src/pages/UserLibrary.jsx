@@ -49,6 +49,23 @@ export default function UserLibrary() {
     refetchArtists()
   }
 
+  const handleArtistDelete = (artistId) => {
+    // If we're viewing this artist's albums, go back to artist list
+    if (selectedArtist?.id === artistId) {
+      setSelectedArtist(null)
+    }
+    refetchArtists()
+  }
+
+  const handleAlbumDelete = (albumId) => {
+    refetchAlbums()
+    // If this was the last album, go back to artists
+    if (albums && albums.length <= 1) {
+      setSelectedArtist(null)
+      refetchArtists()
+    }
+  }
+
   const isLoading = selectedArtist ? albumsLoading : artistsLoading
 
   return (
@@ -104,7 +121,7 @@ export default function UserLibrary() {
           <AlbumGrid
             albums={albums || []}
             onAlbumClick={handleAlbumClick}
-            onAlbumDelete={() => refetchAlbums()}
+            onAlbumDelete={handleAlbumDelete}
           />
         )
       ) : (artists?.length || 0) === 0 ? (
@@ -120,7 +137,7 @@ export default function UserLibrary() {
         <ArtistGrid
           artists={artists || []}
           onArtistClick={handleArtistClick}
-          onArtistDelete={() => refetchArtists()}
+          onArtistDelete={handleArtistDelete}
         />
       )}
 

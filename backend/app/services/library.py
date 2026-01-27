@@ -1,6 +1,7 @@
 """Library service for browsing master library."""
 import shutil
 import logging
+import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
@@ -13,6 +14,61 @@ from app.models.user_library import user_albums
 from app.services.symlink import SymlinkService
 
 logger = logging.getLogger(__name__)
+
+
+def smb_safe_rmtree(path: Path, retries: int = 3, delay: float = 0.5) -> None:
+    """Delete a directory tree with SMB mount compatibility.
+
+    SMB mounts create .smbdelete* files during deletion that can be temporarily
+    locked. This function retries deletion with delays to handle these locks.
+
+    Args:
+        path: Directory to delete
+        retries: Number of retry attempts (default 3)
+        delay: Seconds to wait between retries (default 0.5)
+
+    Raises:
+        OSError: If deletion fails after all retries
+    """
+    last_error = None
+
+    for attempt in range(retries):
+        try:
+            # First pass: try to remove .smbdelete* files with individual retries
+            for smb_file in list(path.rglob(".smbdelete*")):
+                for _ in range(3):
+                    try:
+                        smb_file.unlink()
+                        break
+                    except OSError:
+                        time.sleep(0.1)
+
+            # Now try rmtree with onerror handler
+            def onerror(func, filepath, exc_info):
+                """Handle errors during rmtree - retry busy files."""
+                filepath_str = str(filepath)  # Convert Path to string
+                error_str = str(exc_info[1]) if exc_info[1] else ""
+                if "Device or resource busy" in error_str or ".smbdelete" in filepath_str:
+                    time.sleep(0.2)
+                    try:
+                        func(filepath)
+                    except Exception:
+                        pass  # Will be caught by outer retry
+                else:
+                    raise exc_info[1]
+
+            shutil.rmtree(path, onerror=onerror)
+            return  # Success
+
+        except OSError as e:
+            last_error = e
+            if attempt < retries - 1:
+                logger.warning(f"SMB deletion attempt {attempt + 1} failed, retrying in {delay}s: {e}")
+                time.sleep(delay)
+                delay *= 2  # Exponential backoff
+
+    # All retries failed
+    raise last_error
 
 
 class LibraryService:
@@ -179,36 +235,60 @@ class LibraryService:
         album_title = album.title
         artist_name = album.artist.name if album.artist else "Unknown"
 
+        logger.info(f"Starting deletion of album {album_id}: {artist_name} - {album_title}")
+        logger.info(f"Album path from database: {album_path}")
+
         # Step 1: Delete files FIRST (if requested)
         if delete_files and album_path:
             path = Path(album_path)
+            logger.info(f"Checking if path exists: {path} -> exists={path.exists()}, is_dir={path.is_dir() if path.exists() else 'N/A'}")
+
+            files_deleted = False
             if path.exists() and path.is_dir():
                 try:
-                    # SMB mounts can leave .smbdelete* files that block rmtree
-                    for smb_file in path.glob(".smbdelete*"):
-                        try:
-                            smb_file.unlink()
-                        except Exception:
-                            pass
-
-                    shutil.rmtree(path)
-                    logger.info(f"Deleted album files: {path}")
+                    # Check if directory only contains .smbdelete files (already pending deletion)
+                    real_files = [f for f in path.iterdir() if not f.name.startswith('.smbdelete')]
+                    if not real_files:
+                        logger.info(f"Album directory only contains SMB pending-delete files, skipping file deletion: {path}")
+                        files_deleted = True
+                    else:
+                        # Use SMB-safe deletion with retries
+                        smb_safe_rmtree(path)
+                        logger.info(f"Deleted album files: {path}")
+                    files_deleted = True
 
                     # Clean up empty artist directory
                     artist_dir = path.parent
-                    if artist_dir.exists() and not any(artist_dir.iterdir()):
-                        artist_dir.rmdir()
-                        logger.info(f"Removed empty artist directory: {artist_dir}")
+                    if artist_dir.exists():
+                        # Check if empty (ignore .smbdelete* and .DS_Store)
+                        remaining = [f for f in artist_dir.iterdir()
+                                     if not f.name.startswith('.smbdelete') and f.name != '.DS_Store']
+                        if not remaining:
+                            try:
+                                smb_safe_rmtree(artist_dir)
+                                logger.info(f"Removed empty artist directory: {artist_dir}")
+                            except Exception as e:
+                                logger.warning(f"Could not remove artist directory: {e}")
 
                 except PermissionError as e:
                     logger.error(f"Permission denied deleting {path}: {e}")
                     return False, f"Permission denied: cannot delete files at {path}"
                 except OSError as e:
-                    logger.error(f"OS error deleting {path}: {e}")
-                    return False, f"Failed to delete files: {e}"
+                    error_str = str(e).lower()
+                    # SMB lock issues - log warning but continue with database deletion
+                    # "busy" = file locked, "not empty" = .smbdelete files remain
+                    if "busy" in error_str or "smbdelete" in error_str or "not empty" in error_str:
+                        logger.warning(f"SMB files may be locked or pending deletion, proceeding with database deletion: {e}")
+                        files_deleted = True  # Files are marked for deletion by SMB
+                    else:
+                        logger.error(f"OS error deleting {path}: {e}")
+                        return False, f"Failed to delete files: {e}"
                 except Exception as e:
                     logger.error(f"Failed to delete album files {path}: {e}")
                     return False, f"Failed to delete files: {e}"
+            else:
+                logger.warning(f"Album path does not exist or is not a directory: {path}")
+                files_deleted = True  # Nothing to delete on disk
 
         # Step 2: Remove user library symlinks
         if album_path:
@@ -219,19 +299,31 @@ class LibraryService:
                 .filter(user_albums.c.album_id == album_id)
                 .all()
             )
+            logger.info(f"Removing symlinks for {len(users)} user(s)")
             for (username,) in users:
-                symlink.remove_album_links(username, album_path)
+                try:
+                    symlink.remove_album_links(username, album_path)
+                    logger.info(f"Removed symlinks for user: {username}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove symlinks for user {username}: {e}")
 
         # Step 3: Delete database records only after files are gone
         try:
-            # Delete tracks first (foreign key constraint)
-            self.db.query(Track).filter(Track.album_id == album_id).delete()
+            # Delete from user_albums first (foreign key constraint)
+            deleted_user_albums = self.db.execute(
+                user_albums.delete().where(user_albums.c.album_id == album_id)
+            )
+            logger.info(f"Removed {deleted_user_albums.rowcount} user_albums entries")
+
+            # Delete tracks (foreign key constraint)
+            deleted_tracks = self.db.query(Track).filter(Track.album_id == album_id).delete()
+            logger.info(f"Deleted {deleted_tracks} tracks from database")
 
             # Delete album from database
             self.db.delete(album)
             self.db.commit()
 
-            logger.info(f"Deleted album from database: {artist_name} - {album_title}")
+            logger.info(f"Successfully deleted album from database: {artist_name} - {album_title}")
             return True, None
 
         except Exception as e:
@@ -263,40 +355,55 @@ class LibraryService:
         artist_name = artist.name
         artist_path = artist.path
 
+        logger.info(f"Starting deletion of artist {artist_id}: {artist_name}")
+        logger.info(f"Artist path from database: {artist_path}")
+
         # Get all albums for this artist
         albums = self.get_artist_albums(artist_id)
+        logger.info(f"Found {len(albums)} albums to delete")
 
         # Delete each album (this handles files, symlinks, and DB records)
+        failed_albums = []
         for album in albums:
             success, error = self.delete_album(album.id, delete_files)
             if not success:
-                logger.error(f"Failed to delete album {album.id} while deleting artist: {error}")
+                logger.error(f"Failed to delete album {album.id} ({album.title}) while deleting artist: {error}")
+                failed_albums.append((album.id, album.title, error))
                 # Continue deleting other albums even if one fails
+
+        if failed_albums:
+            logger.warning(f"Failed to delete {len(failed_albums)} album(s)")
 
         # Delete artist directory if it exists and is empty
         if delete_files and artist_path:
             path = Path(artist_path)
+            logger.info(f"Checking artist path: {path} -> exists={path.exists()}")
+
             if path.exists() and path.is_dir():
                 try:
-                    # Clean up any SMB artifacts
-                    for smb_file in path.glob(".smbdelete*"):
-                        try:
-                            smb_file.unlink()
-                        except Exception:
-                            pass
-
-                    # Only delete if empty (albums should have been deleted)
-                    if not any(path.iterdir()):
-                        path.rmdir()
+                    # Check if empty (ignore .smbdelete* and .DS_Store)
+                    remaining = [f for f in path.iterdir()
+                                 if not f.name.startswith('.smbdelete') and f.name != '.DS_Store']
+                    if not remaining:
+                        smb_safe_rmtree(path)
                         logger.info(f"Deleted artist directory: {path}")
+                    else:
+                        logger.warning(f"Artist directory not empty, {len(remaining)} items remain: {[str(p) for p in remaining[:5]]}")
                 except Exception as e:
                     logger.warning(f"Could not delete artist directory {path}: {e}")
 
         # Delete artist from database
         try:
+            # Delete from user_artists first (foreign key constraint)
+            from app.models.user_artists import user_artists
+            deleted_user_artists = self.db.execute(
+                user_artists.delete().where(user_artists.c.artist_id == artist_id)
+            )
+            logger.info(f"Removed {deleted_user_artists.rowcount} user_artists entries")
+
             self.db.delete(artist)
             self.db.commit()
-            logger.info(f"Deleted artist from database: {artist_name}")
+            logger.info(f"Successfully deleted artist from database: {artist_name}")
             return True, None
         except Exception as e:
             self.db.rollback()

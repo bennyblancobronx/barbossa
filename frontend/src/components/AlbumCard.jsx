@@ -67,13 +67,17 @@ export default function AlbumCard({ album, onClick, onDelete, onArtworkChange, o
     }
 
     try {
-      await api.deleteAlbum(album.id)
-      // Notify parent to refresh the list
-      if (onDelete) {
-        onDelete(album.id)
+      const response = await api.deleteAlbum(album.id)
+      if (response.status === 200) {
+        // Notify parent to refresh the list
+        if (onDelete) {
+          onDelete(album.id)
+        }
       }
     } catch (error) {
       console.error('Delete failed:', error)
+      const message = error.response?.data?.detail || 'Failed to delete album'
+      alert(`Delete failed: ${message}`)
     }
   }
 

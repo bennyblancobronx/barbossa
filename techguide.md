@@ -597,6 +597,12 @@ class LibraryService:
                 break
 ```
 
+**SMB Mount Compatibility:** When the library is on an SMB/CIFS network share, file deletion uses `smb_safe_rmtree()` which handles:
+- `.smbdelete*` temporary files created during deletion
+- Retries with exponential backoff for locked files
+- Graceful handling of "Device or resource busy" errors
+- Proceeds with database deletion even if SMB files remain locked (NAS will clean up)
+
 ### 4. Quality Service
 
 ```python

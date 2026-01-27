@@ -70,12 +70,16 @@ export default function ArtistCard({ artist, onClick, onDelete, onHeart }) {
     }
 
     try {
-      await api.deleteArtist(artist.id)
-      if (onDelete) {
-        onDelete(artist.id)
+      const response = await api.deleteArtist(artist.id)
+      if (response.status === 200) {
+        if (onDelete) {
+          onDelete(artist.id)
+        }
       }
     } catch (error) {
       console.error('Delete failed:', error)
+      const message = error.response?.data?.detail || 'Failed to delete artist'
+      alert(`Delete failed: ${message}`)
     }
   }
 

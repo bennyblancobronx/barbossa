@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.133] - 2026-01-26
+
+### TL;DR
+- Fix SMB mount deletion: files now delete properly on network shares
+- Fix deletion redirect: page navigates to artist list after deletion
+- Root cause: SMB creates locked .smbdelete files that blocked shutil.rmtree
+
+### Fixed
+- **services/library.py**: SMB-safe deletion with smb_safe_rmtree() function
+  - Retries deletion with exponential backoff for SMB lock issues
+  - Handles "Device or resource busy" and "Directory not empty" errors
+  - Proceeds with database deletion even if SMB files are pending
+  - Detects directories with only .smbdelete files (already pending deletion)
+- **pages/Library.jsx**: Navigate back to artist list when deleting artist from album view
+- **pages/Library.jsx**: Navigate back to artist list when deleting last album
+- **pages/UserLibrary.jsx**: Same navigation fixes for My Library page
+- **components/ArtistCard.jsx**: Show alert on delete failure instead of silent fail
+- **components/AlbumCard.jsx**: Show alert on delete failure instead of silent fail
+
+### Root Cause
+SMB protocol renames files to .smbdeleteXXXXX before deletion, but keeps them locked
+until the server releases them. shutil.rmtree() failed with "Device or resource busy"
+when trying to delete these locked files, causing the entire deletion to abort.
+
+---
+
 ## [0.1.132] - 2026-01-26
 
 ### TL;DR
