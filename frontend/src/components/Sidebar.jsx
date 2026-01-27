@@ -2,16 +2,23 @@ import { useState } from 'react'
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
+import { useDownloadStore } from '../stores/downloads'
 
 export default function Sidebar() {
   const { user, logout } = useAuthStore()
   const { theme, toggleTheme } = useThemeStore()
+  const downloads = useDownloadStore(state => state.downloads)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
   // Initialize from URL if on search page
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [searchType, setSearchType] = useState(searchParams.get('type') || 'album')
+
+  // Count active downloads (pending, downloading, importing)
+  const activeDownloadCount = downloads.filter(d =>
+    ['pending', 'downloading', 'importing'].includes(d.status)
+  ).length
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -32,45 +39,6 @@ export default function Sidebar() {
         <h1 className="text-2xl">barbossa</h1>
       </div>
 
-      {/* Search Section */}
-      <div className="sidebar-search">
-        <form onSubmit={handleSearch}>
-          <div className="search-bar">
-            <SearchIcon />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Search... (Enter)"
-              className="search-input"
-              aria-label="Search library"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                className="search-clear"
-                onClick={() => setSearchQuery('')}
-                aria-label="Clear search"
-              >
-                <CloseIcon />
-              </button>
-            )}
-          </div>
-          {/* NO playlist option per contracts.md line 94 */}
-          <select
-            value={searchType}
-            onChange={e => setSearchType(e.target.value)}
-            className="search-type-select"
-            aria-label="Search type"
-          >
-            <option value="album">Albums</option>
-            <option value="artist">Artists</option>
-            <option value="track">Tracks</option>
-          </select>
-        </form>
-      </div>
-
       <nav className="sidebar-nav">
         <NavLink to="/" end className={({ isActive }) =>
           `nav-link ${isActive ? 'is-active' : ''}`
@@ -88,6 +56,9 @@ export default function Sidebar() {
           `nav-link ${isActive ? 'is-active' : ''}`
         }>
           Downloads
+          {activeDownloadCount > 0 && (
+            <span className="nav-badge">{activeDownloadCount}</span>
+          )}
         </NavLink>
 
         <NavLink to="/settings" className={({ isActive }) =>
@@ -97,17 +68,58 @@ export default function Sidebar() {
         </NavLink>
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="sidebar-footer-row">
-          <span className="text-muted text-sm">{user?.username}</span>
-          <button onClick={logout} className="btn-ghost text-sm">
-            Logout
+      <div className="sidebar-bottom">
+        {/* Search Section - moved to bottom */}
+        <div className="sidebar-search">
+          <form onSubmit={handleSearch}>
+            <div className="search-bar">
+              <SearchIcon />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search..."
+                className="search-input"
+                aria-label="Search library"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="search-clear"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                >
+                  <CloseIcon />
+                </button>
+              )}
+            </div>
+            {/* NO playlist option per contracts.md line 94 */}
+            <select
+              value={searchType}
+              onChange={e => setSearchType(e.target.value)}
+              className="search-type-select"
+              aria-label="Search type"
+            >
+              <option value="album">Albums</option>
+              <option value="artist">Artists</option>
+              <option value="track">Tracks</option>
+            </select>
+          </form>
+        </div>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-footer-row">
+            <span className="text-muted text-sm">{user?.username}</span>
+            <button onClick={logout} className="btn-ghost text-sm">
+              Logout
+            </button>
+          </div>
+          <button onClick={toggleTheme} className="theme-toggle" title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            <span className="text-sm">{theme === 'dark' ? 'Light' : 'Dark'} Mode</span>
           </button>
         </div>
-        <button onClick={toggleTheme} className="theme-toggle" title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
-          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-          <span className="text-sm">{theme === 'dark' ? 'Light' : 'Dark'} Mode</span>
-        </button>
       </div>
     </aside>
   )

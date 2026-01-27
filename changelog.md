@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.135] - 2026-01-26
+
+### TL;DR
+- Show active download count badge in nav bar
+- Move search bar to bottom of sidebar
+
+### Changed
+- **components/Sidebar.jsx**: Add download count badge next to "Downloads" nav link
+- **components/Sidebar.jsx**: Move search bar to bottom of sidebar (above footer)
+- **styles/design-system.css**: Add `.nav-badge` and `.sidebar-bottom` styles
+
+---
+
+## [0.1.134] - 2026-01-26
+
+### TL;DR
+- Add failed downloads section with error reasons in Downloads page
+- Failed downloads now show separately with retry/dismiss options
+
+### Added
+- **pages/Downloads.jsx**: Failed downloads section showing error reasons
+  - Separate section for failed downloads with error messages
+  - Retry button to restart failed downloads
+  - Dismiss button to remove failed entries
+  - Timestamp of when download failed
+- **api/downloads.py**: POST /downloads/{id}/retry endpoint to retry failed downloads
+- **api/downloads.py**: Include failed downloads in queue response
+- **services/api.js**: retryDownload() and dismissDownload() API functions
+- **styles/design-system.css**: Styling for failed downloads section
+
+---
+
 ## [0.1.133] - 2026-01-26
 
 ### TL;DR

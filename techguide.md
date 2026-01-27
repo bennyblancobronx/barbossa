@@ -208,8 +208,10 @@ Downloads are a temporary staging area only. Imported albums land in the master 
 | POST | `/api/downloads/qobuz` | Start Qobuz download (optional `search_type` for auto-heart rule) |
 | POST | `/api/downloads/url` | Start URL download (YouTube, Bandcamp, Soundcloud) |
 | POST | `/api/downloads/lidarr/request` | Request via Lidarr |
-| GET | `/api/downloads/queue` | Get download queue |
-| DELETE | `/api/downloads/{id}` | Cancel download |
+| GET | `/api/downloads/queue` | Get download queue (includes failed) |
+| POST | `/api/downloads/{id}/cancel` | Cancel active download |
+| POST | `/api/downloads/{id}/retry` | Retry failed download |
+| DELETE | `/api/downloads/{id}` | Dismiss/delete download record |
 
 ### Qobuz Catalog Browsing
 
@@ -1094,12 +1096,13 @@ class EnrichmentService:
 ### Layout Components
 
 **Sidebar.jsx** - Main navigation with integrated search
-- Search input at top (above navigation)
+- Navigation order: My Library, Master Library, Downloads, Settings
+- Download count badge next to "Downloads" (shows pending/downloading/importing count)
+- Search input at bottom (below navigation, above footer)
 - Type selector: Albums / Artists / Tracks (NO Playlist option)
 - Navigate to `/search?q=X&type=Y` on submit
 - Escape clears input
 - Theme toggle in footer
-- Navigation order: My Library, Master Library, Downloads, Settings
 
 **Layout.jsx** - Page wrapper
 - Sidebar + main content area + Player + ToastContainer

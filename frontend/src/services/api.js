@@ -114,6 +114,12 @@ export const getDownloads = () =>
 export const cancelDownload = (id) =>
   api.post(`/downloads/${id}/cancel`)
 
+export const retryDownload = (id) =>
+  api.post(`/downloads/${id}/retry`)
+
+export const dismissDownload = (id) =>
+  api.delete(`/downloads/${id}`)
+
 // Qobuz Catalog Browsing
 export const searchQobuzCatalog = (query, type = 'album', limit = 20) =>
   api.get('/qobuz/search', { params: { q: query, type, limit } })

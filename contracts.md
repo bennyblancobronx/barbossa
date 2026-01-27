@@ -41,6 +41,15 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 - Does NOT auto-add to user library unless user downloads a single song
 - Show quality warning for lossy sources (YouTube, Soundcloud, etc.)
 
+#### Download Queue UI
+- Active downloads shown with progress bar, speed, and ETA
+- Download count badge shown in sidebar nav (pending/downloading/importing count)
+- Failed downloads shown in separate section with:
+  - Error message/reason
+  - Timestamp of failure
+  - Retry button (restarts download)
+  - Dismiss button (removes from queue)
+
 ### 4. Import
 - Watch folder for manual imports
 - Review queue for unidentified content
@@ -91,9 +100,10 @@ For Bandcamp purchases: Settings > Bandcamp Sync
 - Mixed-source albums show per-track source
 
 ### Search (Sidebar)
-- Search input in sidebar (above navigation)
+- Search input in sidebar (below navigation, above footer)
 - Force user to select search type: Artist / Track / Album
 - Do NOT include playlist option in sidebar search
+- Download count badge shown next to "Downloads" nav link when active
 - Search local library first
 - If no local results, show external source options:
   - [Search Qobuz] - 24/192 max

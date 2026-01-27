@@ -160,16 +160,17 @@ async def get_download_queue(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Get active download queue.
+    """Get download queue including failed downloads.
 
-    Returns pending, in-progress, and pending_review downloads.
+    Returns pending, in-progress, pending_review, and failed downloads.
     """
     query = db.query(Download).filter(
         Download.status.in_([
             DownloadStatus.PENDING.value,
             DownloadStatus.DOWNLOADING.value,
             DownloadStatus.IMPORTING.value,
-            DownloadStatus.PENDING_REVIEW.value
+            DownloadStatus.PENDING_REVIEW.value,
+            DownloadStatus.FAILED.value
         ]),
         Download.user_id == user.id
     )
@@ -251,6 +252,48 @@ async def cancel_download(
     db.commit()
 
     return {"status": "cancelled", "id": download_id}
+
+
+@router.post("/{download_id}/retry", response_model=DownloadResponse)
+async def retry_download(
+    download_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Retry a failed download."""
+    download = db.query(Download).filter(Download.id == download_id).first()
+
+    if not download:
+        raise HTTPException(status_code=404, detail="Download not found")
+
+    if download.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if download.status != DownloadStatus.FAILED.value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only retry failed downloads. Current status: {download.status}"
+        )
+
+    # Reset download state
+    download.status = DownloadStatus.PENDING.value
+    download.progress = 0
+    download.error_message = None
+    download.started_at = datetime.utcnow()
+    download.completed_at = None
+    db.commit()
+
+    # Restart the appropriate task based on source
+    if download.source == DownloadSource.QOBUZ.value:
+        task = download_qobuz_task.delay(download.id, download.source_url, 4)
+    else:
+        task = download_url_task.delay(download.id, download.source_url)
+
+    download.celery_task_id = task.id
+    db.commit()
+    db.refresh(download)
+
+    return download
 
 
 @router.delete("/{download_id}")

@@ -56,6 +56,32 @@ export default function Downloads() {
     }
   )
 
+  const retryDownload = useMutation(
+    (id) => api.retryDownload(id),
+    {
+      onSuccess: () => {
+        addNotification({ type: 'success', message: 'Retrying download' })
+        queryClient.invalidateQueries('downloads')
+      },
+      onError: (error) => {
+        addNotification({ type: 'error', message: error.response?.data?.detail || 'Retry failed' })
+      }
+    }
+  )
+
+  const dismissDownload = useMutation(
+    (id) => api.dismissDownload(id),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('downloads')
+      }
+    }
+  )
+
+  // Separate active downloads from failed ones
+  const activeDownloads = downloads.filter(d => d.status !== 'failed')
+  const failedDownloads = downloads.filter(d => d.status === 'failed')
+
   const handleUrlDownload = (e) => {
     e.preventDefault()
     if (urlInput.trim()) {
@@ -99,11 +125,11 @@ export default function Downloads() {
       <section className="download-section">
         <h2 className="text-lg">Download Queue</h2>
 
-        {downloads.length === 0 ? (
+        {activeDownloads.length === 0 ? (
           <p className="text-muted">No downloads in progress</p>
         ) : (
           <div className="download-queue">
-            {downloads.map(download => (
+            {activeDownloads.map(download => (
               <DownloadItem
                 key={download.id}
                 download={download}
@@ -113,6 +139,25 @@ export default function Downloads() {
           </div>
         )}
       </section>
+
+      {failedDownloads.length > 0 && (
+        <section className="download-section">
+          <h2 className="text-lg">Failed Downloads</h2>
+          <p className="text-sm text-muted">Downloads that encountered errors</p>
+
+          <div className="download-queue failed-downloads">
+            {failedDownloads.map(download => (
+              <FailedDownloadItem
+                key={download.id}
+                download={download}
+                onRetry={() => retryDownload.mutate(download.id)}
+                onDismiss={() => dismissDownload.mutate(download.id)}
+                isRetrying={retryDownload.isLoading}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
@@ -254,6 +299,47 @@ function DownloadItem({ download, onCancel }) {
           Cancel
         </button>
       )}
+    </div>
+  )
+}
+
+function FailedDownloadItem({ download, onRetry, onDismiss, isRetrying }) {
+  return (
+    <div className="download-item failed-download-item">
+      <div className="download-item-info">
+        <span className="download-item-source badge badge-error">{download.source}</span>
+        <span className="download-item-url">{download.search_query || download.source_url}</span>
+      </div>
+
+      <div className="download-item-status">
+        <div className="failed-reason">
+          <span className="failed-label text-error">Failed</span>
+          <span className="failed-message text-muted">
+            {download.error_message || 'Unknown error'}
+          </span>
+        </div>
+        {download.completed_at && (
+          <span className="failed-time text-muted">
+            {new Date(download.completed_at).toLocaleString()}
+          </span>
+        )}
+      </div>
+
+      <div className="download-actions">
+        <button
+          className="btn-secondary btn-sm"
+          onClick={onRetry}
+          disabled={isRetrying}
+        >
+          Retry
+        </button>
+        <button
+          className="btn-ghost btn-sm"
+          onClick={onDismiss}
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   )
 }
