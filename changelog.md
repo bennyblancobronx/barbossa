@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.132] - 2026-01-26
+
+### TL;DR
+- Fix enrichment API async/sync execution issues
+
+### Fixed
+- **api/enrichment.py**: Use await instead of asyncio.run_until_complete for sync mode
+- **services/enrichment.py**: Convert album.tracks to list before iterating (lazy loading fix)
+
+---
+
 ## [0.1.131] - 2026-01-26
 
 ### TL;DR

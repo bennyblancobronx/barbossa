@@ -213,7 +213,10 @@ class EnrichmentService:
         failed = 0
         skipped = 0
 
-        for track in album.tracks:
+        # Convert to list to handle lazy loading
+        tracks = list(album.tracks)
+
+        for track in tracks:
             result = await self.enrich_track_lyrics(track)
             results.append(result)
 
@@ -225,7 +228,7 @@ class EnrichmentService:
                 failed += 1
 
         return BatchEnrichmentResult(
-            total=len(album.tracks),
+            total=len(tracks),
             enriched=enriched,
             failed=failed,
             skipped=skipped,

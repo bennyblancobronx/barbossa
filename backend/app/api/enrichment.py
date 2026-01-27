@@ -103,12 +103,9 @@ async def enrich_album(
             message=f"Enrichment started for album '{album.title}'"
         )
     else:
-        # Synchronous execution
+        # Synchronous execution (actually async since we're in async context)
         service = EnrichmentService(db)
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            service.enrich_album_lyrics(album_id)
-        )
+        result = await service.enrich_album_lyrics(album_id)
         return EnrichmentJobResponse(
             task_id="sync",
             message=f"Enriched {result.enriched}/{result.total} tracks"
@@ -139,12 +136,9 @@ async def enrich_track(
             message=f"Enrichment task started: {task.id}"
         )
     else:
-        # Synchronous execution
+        # Synchronous execution (actually async since we're in async context)
         service = EnrichmentService(db)
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            service.enrich_track_lyrics(track)
-        )
+        result = await service.enrich_track_lyrics(track)
         return TrackEnrichmentResponse(
             track_id=track_id,
             success=result.success,
