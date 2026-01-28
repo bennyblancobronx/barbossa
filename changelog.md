@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.137] - 2026-01-28
+
+### TL;DR
+- Fix compilation album imports (soundtracks, VA compilations) failing with "Could not find imported album"
+- Pipeline now checks beets Compilations/ folder, allows "various artists" for real compilations, and auto-assigns "Soundtrack" or "Compilations" as artist name
+
 ## [0.1.136] - 2026-01-28
 
 ### TL;DR

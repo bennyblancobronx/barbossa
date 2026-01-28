@@ -527,8 +527,13 @@ def process_import(
 
 ### Compilation Handling
 
-- Avoid compilation handling in the library model.
-- Use artist name `Soundtrack` for soundtrack releases.
+- Compilations are detected via explicit metadata flag or 3+ unique track artists.
+- Soundtracks (detected by album title or release type) use artist name `Soundtrack`.
+- Other compilations (VA, DJ mixes) use artist name `Compilations`.
+- Beets places compilations in `Compilations/$album/` via the `comp:` path rule.
+- `_find_imported_path()` checks `Compilations/` folder as fallback when standard artist search fails.
+- `validate_metadata()` allows "various artists" through when the album is a genuine compilation.
+- Users can rename the artist post-import via `PUT /api/metadata/artists/{id}`.
 
 ### 3. Library Service
 

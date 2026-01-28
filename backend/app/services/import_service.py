@@ -219,7 +219,8 @@ class ImportService:
         artist = first_track.get("artist") or ""
         artist_lower = artist.lower().strip()
 
-        if not artist or artist_lower in INVALID_ARTIST_PATTERNS:
+        is_comp = self._detect_compilation(tracks_metadata)
+        if not artist or (artist_lower in INVALID_ARTIST_PATTERNS and not is_comp):
             issues.append(f"Invalid artist: '{artist or 'missing'}'")
 
         # Check album
@@ -383,9 +384,19 @@ class ImportService:
 
         # Find or create artist - validation passed, so we know artist is valid
         artist_name = first_track.get("artist")
-        if not artist_name or artist_name.lower().strip() in INVALID_ARTIST_PATTERNS:
+        is_comp = self._detect_compilation(tracks_metadata)
+        if not artist_name or (artist_name.lower().strip() in INVALID_ARTIST_PATTERNS and not is_comp):
             # This shouldn't happen if validation is on, but be safe
             raise ImportError(f"Invalid artist name: '{artist_name}'")
+
+        # Substitute artist name for compilations with generic artist
+        if is_comp and artist_name and artist_name.lower().strip() in INVALID_ARTIST_PATTERNS:
+            album_title_check = (first_track.get("album") or "").lower()
+            release_type = (first_track.get("release_type") or "").lower()
+            if "soundtrack" in album_title_check or release_type == "soundtrack":
+                artist_name = "Soundtrack"
+            else:
+                artist_name = "Compilations"
 
         artist = self._get_or_create_artist(
             artist_name,

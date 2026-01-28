@@ -533,6 +533,13 @@ class BeetsClient:
                     if album_dir.is_dir() and album.lower() in album_dir.name.lower():
                         return album_dir
 
+        # Fallback: Check Compilations/ folder (beets comp: path rule)
+        comp_dir = self.library_path / "Compilations"
+        if comp_dir.exists():
+            for album_dir in comp_dir.iterdir():
+                if album_dir.is_dir() and album.lower() in album_dir.name.lower():
+                    return album_dir
+
         # If not found, return expected path
         expected = self.library_path / artist / album
         if expected.exists():
