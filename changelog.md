@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.144] - 2026-01-28
+
+### TL;DR
+- Add explicit `trusted` flag to import pipeline so Qobuz is never punished by validation gates
+- Skip strict metadata validation and redundant import_service validation for trusted sources
+- Use Qobuz API metadata as fallback when MusicBrainz identify fails (MB down, album not in MB, etc.)
+- Fall back to direct file move when beets crashes on trusted source (files are good, only beets failed)
+- Fix Celery retrying NeedsReviewError/DuplicateError 3 times instead of treating them as terminal states
+- Fix "Destination path already exists" crash when moving to review folder (rmtree silent failure caused nested paths)
+- Fix "Could not find imported album" after beets --move by capturing track filenames before move
+- Show actual review reason in Downloads UI instead of hardcoded "low confidence match"
+
 ## [0.1.143] - 2026-01-28
 
 ### TL;DR

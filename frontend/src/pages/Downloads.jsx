@@ -276,7 +276,7 @@ function DownloadItem({ download, onCancel }) {
 
         {download.status === 'pending_review' && (
           <span className="download-review text-warning">
-            Needs manual review - low confidence match
+            {download.error_message || 'Needs manual review - low confidence match'}
           </span>
         )}
 

@@ -526,6 +526,19 @@ def process_import(
 - Allow disc subfolders (CD1, Disc 2) during import and export.
 - Preserve disc order in UI and export playlists.
 
+### Trusted Source Import (Qobuz)
+
+Qobuz is a trusted source -- it has its own API with rich metadata, so we don't gate on beets/MusicBrainz confidence or strict tag validation. The `trusted=True` flag on `_import_album()` controls all of this in one place:
+
+1. **Confidence check skipped** (`min_confidence=0.0`) -- any beets confidence is accepted.
+2. **Qobuz API metadata as fallback** -- if MusicBrainz is down or can't identify the album, artist/album names come from the Qobuz API instead of failing.
+3. **Non-strict validation** -- only truly missing data (no artist at all, no track titles at all) triggers review. Generic track names, inconsistent tags, folder-matching album titles are all accepted.
+4. **No redundant validation** -- `import_service.import_album()` skips its own `validate_metadata()` since the caller already validated.
+5. **Beets crash recovery** -- if `beet import` itself fails, falls back to `import_with_metadata()` which moves files directly using the Qobuz API metadata for naming.
+6. **No Celery retry on review/duplicate** -- `NeedsReviewError` and `DuplicateError` are terminal states, not retried.
+
+Non-trusted sources (YouTube, URL downloads, watcher imports) still run the full pipeline with strict validation and 0.85 confidence threshold.
+
 ### Compilation Handling
 
 - Compilations are detected via explicit metadata flag or 3+ unique track artists.
@@ -1064,8 +1077,10 @@ class EnrichmentService:
 
 **Staging Folder Behavior:**
 - Review queue replaces existing copies on retry (no `_1`, `_2` suffix accumulation).
+- If review folder cleanup fails (e.g., NFS lock), a timestamped fallback name is used to prevent nested path collisions.
 - Failed imports folder replaces existing copies on retry.
 - Stale staging files auto-cleaned after 7 days by maintenance task.
+- After `beet import --move`, track filenames are captured before the move so the album can still be located in the library if path normalization fails.
 
 **Auto-Enrich on Import:** When `enrich_on_import=True` (default), newly imported albums automatically queue for lyrics enrichment.
 

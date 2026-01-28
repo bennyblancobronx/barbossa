@@ -105,7 +105,13 @@ def download_qobuz_task(
     try:
         return loop.run_until_complete(run())
     except Exception as e:
-        # Retry on failure
+        # Don't retry terminal states -- review/duplicate are intentional, not transient failures
+        from app.services.download import NeedsReviewError, DuplicateError
+        from app.services.import_service import DuplicateContentError
+        if isinstance(e, (NeedsReviewError, DuplicateError, DuplicateContentError)):
+            return {"status": "review" if isinstance(e, NeedsReviewError) else "duplicate"}
+
+        # Retry on transient failures only
         try:
             self.retry(exc=e, countdown=60)
         except self.MaxRetriesExceededError:
@@ -222,6 +228,12 @@ def download_url_task(
     try:
         return loop.run_until_complete(run())
     except Exception as e:
+        # Don't retry terminal states
+        from app.services.download import NeedsReviewError, DuplicateError
+        from app.services.import_service import DuplicateContentError
+        if isinstance(e, (NeedsReviewError, DuplicateError, DuplicateContentError)):
+            return {"status": "review" if isinstance(e, NeedsReviewError) else "duplicate"}
+
         try:
             self.retry(exc=e, countdown=30)
         except self.MaxRetriesExceededError:

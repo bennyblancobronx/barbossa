@@ -325,8 +325,9 @@ class DownloadService:
                 source=DownloadSource.QOBUZ.value,
                 source_url=url,
                 user_id=download.user_id,
-                min_confidence=0.0,  # Trust Qobuz - never send to review
-                qobuz_metadata=qobuz_metadata  # Phase 7: Pass Qobuz metadata
+                min_confidence=0.0,
+                qobuz_metadata=qobuz_metadata,
+                trusted=True  # Qobuz is authoritative -- skip strict gates
             )
 
             # Fetch artist artwork from Qobuz
@@ -471,7 +472,8 @@ class DownloadService:
         user_id: Optional[int] = None,
         is_lossy: bool = False,
         min_confidence: float = 0.85,
-        qobuz_metadata: Optional[dict] = None
+        qobuz_metadata: Optional[dict] = None,
+        trusted: bool = False
     ) -> Album:
         """Tag and import album to library.
 
@@ -491,12 +493,29 @@ class DownloadService:
             is_lossy: If True, mark tracks as lossy
             min_confidence: Minimum beets confidence (0-1)
             qobuz_metadata: Optional Qobuz API metadata for enrichment (Phase 7)
+            trusted: If True, source is authoritative (e.g. Qobuz) -- skip strict
+                validation, use API metadata as fallback, recover from beets failures
         """
-        # Identify
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Identify via beets/MusicBrainz
         identification = await self.beets.identify(path)
         artist = identification.get("artist")  # No fallback - let validation catch it
         album_title = identification.get("album") or path.name
         confidence = identification.get("confidence", 0)
+
+        # For trusted sources, use pre-fetched API metadata as fallback
+        # when beets/MusicBrainz can't identify (MB down, album not in MB, etc.)
+        if trusted and qobuz_metadata:
+            if not artist and qobuz_metadata.get("artist"):
+                artist = qobuz_metadata["artist"]
+                identification["artist"] = artist
+                logger.info(f"Using Qobuz API artist fallback: {artist}")
+            if album_title == path.name and qobuz_metadata.get("title"):
+                album_title = qobuz_metadata["title"]
+                identification["album"] = album_title
+                logger.info(f"Using Qobuz API album fallback: {album_title}")
 
         # Check confidence - low confidence goes to review queue
         if confidence < min_confidence:
@@ -510,11 +529,13 @@ class DownloadService:
             raise NeedsReviewError(review.id, confidence)
 
         # Pre-validate metadata before expensive beets import
+        # Skip strict validation for trusted sources (Qobuz) - they have good metadata
+        # from the API, and minor tag issues shouldn't block import
         tracks_metadata_raw = await self.exiftool.get_album_metadata(path)
         is_valid, issues = self.import_service.validate_metadata(
             tracks_metadata_raw,
             folder_name=path.name,
-            strict=True
+            strict=not trusted
         )
         if not is_valid:
             review = await self._move_to_review(
@@ -567,7 +588,24 @@ class DownloadService:
             return album
 
         # Tag via beets (moves to library)
-        library_path = await self.beets.import_album(path, move=True)
+        # For trusted sources, if beets crashes we fall back to direct file move
+        # using Qobuz metadata for naming -- the files are good, only beets failed
+        try:
+            library_path = await self.beets.import_album(path, move=True)
+        except BeetsError as beets_err:
+            if trusted and qobuz_metadata and artist and album_title:
+                logger.warning(
+                    f"Beets import failed for trusted source, using direct move: {beets_err}"
+                )
+                library_path = await self.beets.import_with_metadata(
+                    path,
+                    artist=artist,
+                    album=album_title,
+                    year=qobuz_metadata.get("year") or identification.get("year"),
+                    move=True
+                )
+            else:
+                raise
         original_path = path  # Keep reference for potential rollback
 
         try:
@@ -580,13 +618,15 @@ class DownloadService:
                 tracks_metadata = self._merge_qobuz_metadata(tracks_metadata, qobuz_metadata)
 
             # Import to database
+            # Skip redundant validation for trusted sources -- we already validated above
             album = await self.import_service.import_album(
                 path=library_path,
                 tracks_metadata=tracks_metadata,
                 source=source,
                 source_url=source_url,
                 imported_by=user_id,
-                confidence=confidence
+                confidence=confidence,
+                validate=not trusted
             )
             await self._ensure_artwork(album)
             return album
@@ -679,7 +719,19 @@ class DownloadService:
         review_path = review_dir / path.name
         if review_path.exists():
             # Same album already in review -- replace instead of creating duplicates
-            shutil.rmtree(review_path, ignore_errors=True)
+            # Use explicit error handling instead of ignore_errors to avoid
+            # silent failures that cause nested path collisions with shutil.move
+            try:
+                shutil.rmtree(review_path)
+            except OSError as rmtree_err:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Could not remove existing review path {review_path}: {rmtree_err}, "
+                    "using timestamped fallback"
+                )
+                # Fallback: use a unique name to avoid collision
+                import time
+                review_path = review_dir / f"{path.name}_{int(time.time())}"
 
         # Move files
         shutil.move(str(path), str(review_path))

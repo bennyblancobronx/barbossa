@@ -271,6 +271,13 @@ class BeetsClient:
 
         cmd.append(str(path))
 
+        # Capture track filenames BEFORE beets moves them (--move empties source dir)
+        audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff", ".alac"}
+        source_track_names = [
+            f.name for f in path.iterdir()
+            if f.is_file() and f.suffix.lower() in audio_extensions
+        ] if path.exists() else []
+
         await self._run_command(cmd, allow_failure=True)
 
         try:
@@ -282,7 +289,8 @@ class BeetsClient:
 
             return await self._find_imported_path(artist, album)
         except BeetsError:
-            fallback = self._find_by_track_filename(path)
+            # Source path is empty after --move, so use pre-captured filenames
+            fallback = self._find_by_track_name_in_library(source_track_names)
             if fallback:
                 return fallback
             raise
@@ -579,6 +587,29 @@ class BeetsClient:
             return None
 
         target_name = source_files[0].name
+
+        for artist_dir in self.library_path.iterdir():
+            if not artist_dir.is_dir():
+                continue
+            for album_dir in artist_dir.iterdir():
+                if not album_dir.is_dir():
+                    continue
+                candidate = album_dir / target_name
+                if candidate.exists():
+                    return album_dir
+
+        return None
+
+    def _find_by_track_name_in_library(self, track_names: list[str]) -> Optional[Path]:
+        """Find imported album by matching pre-captured track filenames in library.
+
+        Unlike _find_by_track_filename, this works after beets --move has
+        emptied the source directory, because filenames were captured beforehand.
+        """
+        if not track_names:
+            return None
+
+        target_name = track_names[0]
 
         for artist_dir in self.library_path.iterdir():
             if not artist_dir.is_dir():
