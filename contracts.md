@@ -648,6 +648,8 @@ barbossa/
 ├── contracts.md
 ├── techguide.md
 ├── changelog.md
+├── docker-compose.yml             # All 7 services, health-gated
+├── .env.example                   # Template for deployment
 ├── docs/
 │   ├── streamrip-integration.md   # Qobuz + Soundcloud search
 │   ├── beets-integration.md       # Import pipeline
@@ -657,19 +659,29 @@ barbossa/
 │   ├── ytdlp-integration.md       # Universal URL handler
 │   ├── bandcamp-integration.md    # Bandcamp purchases + free
 │   └── plex-integration.md        # Library scan API
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
 ├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── services/
-│   │   ├── models/
-│   │   └── main.py
-│   └── requirements.txt
+│   ├── Dockerfile
+│   ├── entrypoint.sh              # DB verification + startup
+│   ├── .dockerignore
+│   ├── requirements.txt
+│   ├── alembic.ini
+│   ├── alembic/                   # Database migrations
+│   ├── config/                    # Beets config, etc.
+│   ├── db/
+│   │   ├── schema.sql             # Full schema reference
+│   │   └── init/                  # Postgres first-run init scripts
+│   │       └── 001_schema.sql
+│   └── app/
+│       ├── main.py
+│       ├── api/
+│       ├── services/
+│       └── models/
 ├── frontend/
-│   ├── src/
-│   └── package.json
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   ├── nginx.conf                 # Reverse proxy to API
+│   ├── package.json
+│   └── src/
 └── config/
     └── default.yml
 ```

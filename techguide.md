@@ -37,88 +37,80 @@
 
 ## Docker Compose
 
+7 services, all health-gated so they start in the correct order after reboot.
+
 ```yaml
-version: '3.8'
-
 services:
-  barbossa:
+  barbossa:        # API server (FastAPI + uvicorn)
     build: ./backend
-    ports:
-      - "8080:8080"
-    volumes:
-      - /path/to/music:/music
-      - ./config:/config
-    environment:
-      - DATABASE_URL=postgresql://barbossa:password@db/barbossa
-      - REDIS_URL=redis://redis:6379
-      - QOBUZ_EMAIL=${QOBUZ_EMAIL}
-      - QOBUZ_PASSWORD=${QOBUZ_PASSWORD}
-      - LIDARR_URL=${LIDARR_URL}
-      - LIDARR_API_KEY=${LIDARR_API_KEY}
-      - PLEX_URL=${PLEX_URL}
-      - PLEX_TOKEN=${PLEX_TOKEN}
+    ports: ["${API_PORT:-8080}:8080"]
+    volumes: [${MUSIC_PATH}:/music, barbossa_config:/config, ...]
     depends_on:
-      - db
-      - redis
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s, timeout: 10s, retries: 5, start_period: 60s
 
-  worker:
-    build: ./backend
-    command: celery -A app.worker worker -l info -Q downloads,imports,maintenance
-    volumes:
-      - /path/to/music:/music
-      - ./config:/config
-    environment:
-      - DATABASE_URL=postgresql://barbossa:password@db/barbossa
-      - REDIS_URL=redis://redis:6379
-      - QOBUZ_EMAIL=${QOBUZ_EMAIL}
-      - QOBUZ_PASSWORD=${QOBUZ_PASSWORD}
-      - LIDARR_URL=${LIDARR_URL}
-      - LIDARR_API_KEY=${LIDARR_API_KEY}
+  worker:          # Celery worker (downloads, imports, exports, maintenance)
+    command: celery -A app.worker worker -Q downloads,imports,exports,maintenance -c 4 --loglevel=info
     depends_on:
-      - db
-      - redis
+      barbossa: { condition: service_healthy }
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
 
-  beat:
-    build: ./backend
-    command: celery -A app.worker beat -l info
-    environment:
-      - DATABASE_URL=postgresql://barbossa:password@db/barbossa
-      - REDIS_URL=redis://redis:6379
+  beat:            # Celery beat (scheduled tasks)
+    command: celery -A app.worker beat --loglevel=info
     depends_on:
-      - redis
+      barbossa: { condition: service_healthy }
+      redis: { condition: service_healthy }
 
-  watcher:
-    build: ./backend
+  watcher:         # Filesystem watcher (import folder)
     command: python -m app.watcher
-    volumes:
-      - /path/to/music:/music
-    environment:
-      - DATABASE_URL=postgresql://barbossa:password@db/barbossa
-      - REDIS_URL=redis://redis:6379
     depends_on:
-      - db
-      - redis
+      barbossa: { condition: service_healthy }
+      redis: { condition: service_healthy }
 
-  frontend:
+  frontend:        # React app served via nginx
     build: ./frontend
-    ports:
-      - "3000:3000"
+    ports: ["${FRONTEND_PORT:-3000}:80"]
+    depends_on:
+      barbossa: { condition: service_healthy }
 
-  db:
+  db:              # PostgreSQL 15
     image: postgres:15-alpine
-    volumes:
-      - barbossa_db:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=barbossa
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=barbossa
+    healthcheck: pg_isready -U barbossa -d barbossa
 
-  redis:
+  redis:           # Redis 7 (queue + cache + pub/sub)
     image: redis:7-alpine
+    healthcheck: redis-cli ping
 
 volumes:
   barbossa_db:
+  barbossa_redis:
+  barbossa_config:
+  barbossa_streamrip:
+  barbossa_beets:
 ```
+
+### Boot Order
+
+All services use `depends_on` with `condition: service_healthy`. On cold start or reboot:
+
+1. `db` and `redis` start first, pass healthchecks
+2. `barbossa` (API) starts, runs DB table verification via entrypoint, passes healthcheck
+3. `worker`, `beat`, `watcher`, `frontend` start only after API is healthy
+
+The frontend nginx uses Docker DNS resolver (`127.0.0.11`) and variable-based upstream resolution so it boots even if the API is briefly unavailable.
+
+### Deploying on Another Device
+
+1. Copy the full repo (or at minimum: `backend/`, `frontend/`, `docker compose.yml`, `.env.example`)
+2. Copy `.env.example` to `.env` and set `MUSIC_PATH`, `DB_PASSWORD`, `JWT_SECRET`, Qobuz credentials
+3. Ensure the `MUSIC_PATH` directory exists on the target machine
+4. Run `docker compose up -d`
+
+The DB init script (`backend/db/init/001_schema.sql`) runs automatically on first postgres volume creation. The API entrypoint verifies tables on startup.
 
 ---
 
@@ -1351,19 +1343,19 @@ activity_log:
 
 ```bash
 # Start services
-docker-compose up -d
+docker compose up -d
 
 # View logs
-docker-compose logs -f barbossa
-docker-compose logs -f worker
+docker compose logs -f barbossa
+docker compose logs -f worker
 
 # User management
-docker-compose exec barbossa barbossa admin create-user <username>
-docker-compose exec barbossa barbossa admin list-users
-docker-compose exec barbossa barbossa admin delete-user <username> [-f|--force]
+docker compose exec barbossa barbossa admin create-user <username>
+docker compose exec barbossa barbossa admin list-users
+docker compose exec barbossa barbossa admin delete-user <username> [-f|--force]
 
 # Import album from folder
-docker-compose exec barbossa barbossa admin import <path> [OPTIONS]
+docker compose exec barbossa barbossa admin import <path> [OPTIONS]
 #   --artist, -a    Override artist name
 #   --album, -A     Override album name
 #   --year, -y      Override year
@@ -1371,39 +1363,39 @@ docker-compose exec barbossa barbossa admin import <path> [OPTIONS]
 #   --force, -f     Import even if duplicate detected
 
 # Rescan library
-docker-compose exec barbossa barbossa admin rescan [OPTIONS]
+docker compose exec barbossa barbossa admin rescan [OPTIONS]
 #   --path, -p      Specific path to scan (defaults to library root)
 #   --dry-run, -n   Show what would be done without making changes
 
 # Database initialization
-docker-compose exec barbossa barbossa admin db-init
-docker-compose exec barbossa barbossa admin seed [--user admin] [--pass password]
+docker compose exec barbossa barbossa admin db-init
+docker compose exec barbossa barbossa admin seed [--user admin] [--pass password]
 
 # Check for duplicates
-docker-compose exec barbossa python -m app.cli dupes --dry-run
+docker compose exec barbossa python -m app.cli dupes --dry-run
 
 # Run integrity check
-docker-compose exec barbossa python -m app.cli integrity --verify
+docker compose exec barbossa python -m app.cli integrity --verify
 
 # Trigger backup
-docker-compose exec barbossa python -m app.cli backup --destination /backup
+docker compose exec barbossa python -m app.cli backup --destination /backup
 
 # Export user library
-docker-compose exec barbossa python -m app.cli export --user dad --format both --dest /mnt/external
+docker compose exec barbossa python -m app.cli export --user dad --format both --dest /mnt/external
 
 # Check Lidarr connection
-docker-compose exec barbossa python -m app.cli lidarr --status
+docker compose exec barbossa python -m app.cli lidarr --status
 
 # Process pending reviews
-docker-compose exec barbossa python -m app.cli review --list
+docker compose exec barbossa python -m app.cli review --list
 
 # Rebuild all symlinks from database (use if symlinks are missing)
-docker-compose exec barbossa python -m app.cli.main library rebuild-symlinks [OPTIONS]
+docker compose exec barbossa python -m app.cli.main library rebuild-symlinks [OPTIONS]
 #   --user, -u      Rebuild for specific user only
 #   --dry-run       Preview changes without modifying
 
 # Fix existing symlinks (converts absolute to relative paths)
-docker-compose exec barbossa python -m app.cli.main library fix-symlinks [OPTIONS]
+docker compose exec barbossa python -m app.cli.main library fix-symlinks [OPTIONS]
 #   --user, -u      Fix specific user only
 #   --dry-run       Preview changes without modifying
 ```

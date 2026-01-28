@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.136] - 2026-01-28
+
+### TL;DR
+- Fix Docker boot failure after reboot (nginx crash loop, cascading dependency failure)
+- Make Docker setup portable for deployment on other devices
+
+### Changed
+- **docker-compose.yml**: Remove obsolete `version` key. All services now use `depends_on` with `condition: service_healthy` so nothing starts until its dependencies are actually ready. Ports configurable via .env (API_PORT, FRONTEND_PORT). Added CORS_ORIGINS passthrough. Bumped API healthcheck to 5 retries with 60s start period.
+- **frontend/nginx.conf**: Use Docker DNS resolver (127.0.0.11) and variable-based upstream (`set $backend`) so nginx resolves at request time, not startup. This fixes the fatal crash when the API container is not yet running. Added proxy headers and timeouts.
+- **backend/Dockerfile**: Added entrypoint script for auto DB table creation on first boot. Removed `--reload` (dev-only). Added directory structure creation for /music subdirs. Stopped copying tests into image.
+
+### Added
+- **backend/entrypoint.sh**: Runs DB table verification before API startup, skipped for worker/beat/watcher processes.
+- **backend/.dockerignore**: Excludes __pycache__, tests, .env, venv from image builds.
+- **frontend/.dockerignore**: Excludes node_modules, build artifacts from context.
+- **backend/db/init/001_schema.sql**: DB init script for fresh postgres containers (first-run only).
+
+---
+
 ## [0.1.135] - 2026-01-26
 
 ### TL;DR
