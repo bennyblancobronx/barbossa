@@ -569,7 +569,22 @@ class DownloadService:
 
             # Replace with higher quality
             # First, tag via beets
-            library_path = await self.beets.import_album(path, move=True)
+            try:
+                library_path = await self.beets.import_album(path, move=True)
+            except BeetsError as beets_err:
+                if trusted and qobuz_metadata and artist and album_title:
+                    logger.warning(
+                        f"Beets import failed for trusted source (replace path), using direct move: {beets_err}"
+                    )
+                    library_path = await self.beets.import_with_metadata(
+                        path,
+                        artist=artist,
+                        album=album_title,
+                        year=qobuz_metadata.get("year") or identification.get("year"),
+                        move=True
+                    )
+                else:
+                    raise
 
             # Re-extract after beets processing
             tracks_metadata = await self.exiftool.get_album_metadata(library_path)
