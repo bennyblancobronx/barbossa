@@ -774,18 +774,25 @@ class ImportService:
 
         An album is considered a compilation if:
         1. Explicitly marked as compilation in metadata
-        2. Has more than 3 unique non-empty artist names
+        2. Album artist tag is a generic VA name (Various Artists, etc.)
+        3. Has more than 3 unique non-empty artist names
 
         Returns True if compilation detected.
         """
-        # Check if any track is explicitly marked as compilation
+        generic_artists = {"various artists", "va", "various"}
+
         for meta in tracks_metadata:
+            # Check explicit compilation flag
             if meta.get("is_compilation"):
+                return True
+
+            # Check if album_artist is a generic VA name
+            album_artist = str(meta.get("album_artist") or "").lower().strip()
+            if album_artist in generic_artists:
                 return True
 
         # Count unique artists (excluding empty/generic)
         artists = set()
-        generic_artists = {"various artists", "va", "various", ""}
         for meta in tracks_metadata:
             artist = str(meta.get("artist") or "").lower().strip()
             if artist and artist not in generic_artists:

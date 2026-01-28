@@ -518,26 +518,44 @@ class BeetsClient:
             "tracks": tracks
         }
 
+    def _normalize_for_match(self, text: str) -> str:
+        """Normalize text for fuzzy path matching.
+
+        Beets replaces special characters with underscores and collapses
+        whitespace. This normalizes both sides so 'i am  i was' matches
+        'i am _ i was'.
+        """
+        import re
+        text = text.lower()
+        # Replace common beets substitution characters with space
+        text = text.replace("_", " ")
+        # Collapse whitespace
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
     async def _find_imported_path(self, artist: str, album: str) -> Path:
         """Find imported album path in library."""
+        norm_artist = self._normalize_for_match(artist)
+        norm_album = self._normalize_for_match(album)
+
         # Beets organizes as: /library/Artist/Album (Year)/
         for artist_dir in self.library_path.iterdir():
             if not artist_dir.is_dir():
                 continue
 
-            # Case-insensitive artist match
-            if artist_dir.name.lower() == artist.lower() or \
-               artist.lower() in artist_dir.name.lower():
+            # Case-insensitive artist match (normalized for beets char replacements)
+            dir_norm = self._normalize_for_match(artist_dir.name)
+            if dir_norm == norm_artist or norm_artist in dir_norm:
 
                 for album_dir in artist_dir.iterdir():
-                    if album_dir.is_dir() and album.lower() in album_dir.name.lower():
+                    if album_dir.is_dir() and norm_album in self._normalize_for_match(album_dir.name):
                         return album_dir
 
         # Fallback: Check Compilations/ folder (beets comp: path rule)
         comp_dir = self.library_path / "Compilations"
         if comp_dir.exists():
             for album_dir in comp_dir.iterdir():
-                if album_dir.is_dir() and album.lower() in album_dir.name.lower():
+                if album_dir.is_dir() and norm_album in self._normalize_for_match(album_dir.name):
                     return album_dir
 
         # If not found, return expected path

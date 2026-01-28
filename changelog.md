@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.140] - 2026-01-28
+
+### TL;DR
+- Fix `_find_imported_path()` failing when beets replaces special chars with underscores (e.g. "i am  i was" -> "i am _ i was")
+- Fix `_detect_compilation()` not catching albums where albumartist tag is "Various Artists" but track artists are mostly the same (e.g. film scores)
+- Both fixes required for compilation and non-standard-named albums to import successfully
+
 ## [0.1.139] - 2026-01-28
 
 ### TL;DR
