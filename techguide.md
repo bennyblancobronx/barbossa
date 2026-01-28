@@ -1056,6 +1056,16 @@ class EnrichmentService:
 
 **Scheduled Task:** Weekly enrichment runs Saturdays 2 AM (500 tracks/run).
 
+**Maintenance Tasks:**
+- `cleanup_old_downloads` - Removes DB records older than 30 days (completed/failed/cancelled). Also cleans stale staging folders (downloads, review, failed) older than 7 days.
+- `cleanup_orphan_symlinks` - Removes broken symlinks in user libraries.
+- `cleanup_empty_folders` - Removes empty directories in library and user paths.
+
+**Staging Folder Behavior:**
+- Review queue replaces existing copies on retry (no `_1`, `_2` suffix accumulation).
+- Failed imports folder replaces existing copies on retry.
+- Stale staging files auto-cleaned after 7 days by maintenance task.
+
 **Auto-Enrich on Import:** When `enrich_on_import=True` (default), newly imported albums automatically queue for lyrics enrichment.
 
 ---

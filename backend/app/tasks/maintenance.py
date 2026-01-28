@@ -22,10 +22,14 @@ def _get_event_loop():
 
 @shared_task(name="app.tasks.maintenance.cleanup_old_downloads")
 def cleanup_old_downloads():
-    """Remove download records older than 30 days.
+    """Remove download records older than 30 days and clean stale staging files.
 
-    Only cleans up completed, failed, or cancelled downloads.
+    Cleans up:
+    - DB records for completed, failed, or cancelled downloads older than 30 days
+    - Stale files in downloads/, import/review/, and import/failed/ older than 7 days
     """
+    import shutil
+    from app.config import settings
     from app.models.download import Download, DownloadStatus
 
     db = SessionLocal()
@@ -33,17 +37,7 @@ def cleanup_old_downloads():
     try:
         cutoff = datetime.utcnow() - timedelta(days=30)
 
-        # Count before delete
-        count = db.query(Download).filter(
-            Download.created_at < cutoff,
-            Download.status.in_([
-                DownloadStatus.COMPLETE,
-                DownloadStatus.FAILED,
-                DownloadStatus.CANCELLED
-            ])
-        ).count()
-
-        # Delete old records
+        # Delete old DB records
         deleted = db.query(Download).filter(
             Download.created_at < cutoff,
             Download.status.in_([
@@ -54,9 +48,35 @@ def cleanup_old_downloads():
         ).delete(synchronize_session=False)
 
         db.commit()
-
         logger.info(f"Cleaned up {deleted} old download records")
-        return {"deleted": deleted}
+
+        # Clean stale staging folders (files older than 7 days)
+        file_cutoff = datetime.utcnow() - timedelta(days=7)
+        staging_dirs = [
+            Path(settings.music_downloads) / "qobuz",
+            Path(settings.music_import) / "review",
+            Path(settings.music_import) / "failed",
+        ]
+
+        files_cleaned = 0
+        for staging_dir in staging_dirs:
+            if not staging_dir.exists():
+                continue
+            for item in staging_dir.iterdir():
+                if not item.is_dir():
+                    continue
+                try:
+                    mtime = datetime.utcfromtimestamp(item.stat().st_mtime)
+                    if mtime < file_cutoff:
+                        shutil.rmtree(item, ignore_errors=True)
+                        files_cleaned += 1
+                except Exception as e:
+                    logger.warning(f"Failed to clean {item}: {e}")
+
+        if files_cleaned:
+            logger.info(f"Cleaned {files_cleaned} stale staging folders")
+
+        return {"deleted": deleted, "files_cleaned": files_cleaned}
 
     except Exception as e:
         logger.error(f"Cleanup failed: {e}")

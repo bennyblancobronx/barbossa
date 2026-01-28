@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.142] - 2026-01-28
+
+### TL;DR
+- Install `flac` package in Docker image for FLAC integrity verification
+- Fix Qobuz URL regex to handle alphanumeric album IDs (not just numeric)
+- Prevent duplicate folder accumulation: review and failed folders now replace instead of appending `_1`, `_2` suffixes
+- Add staging folder cleanup to maintenance task: stale downloads/review/failed files older than 7 days are auto-removed
+- Cleaned 18 stale staging folders from disk
+
 ## [0.1.141] - 2026-01-28
 
 ### TL;DR

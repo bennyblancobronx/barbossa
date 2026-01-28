@@ -240,8 +240,8 @@ class DownloadService:
 
         try:
             # Extract album ID from URL
-            # Formats: /album/title/id or /album/id
-            match = re.search(r'/album/[^/]+/(\d+)|/album/(\d+)', url)
+            # Formats: /album/title/id or /album/id (ID can be numeric or alphanumeric)
+            match = re.search(r'/album/[^/]+/([a-zA-Z0-9]+)$|/album/([a-zA-Z0-9]+)$', url.rstrip('/'))
             if not match:
                 logger.warning(f"Could not extract album ID from URL: {url}")
                 return None
@@ -604,10 +604,9 @@ class DownloadService:
                     failed_dir.mkdir(parents=True, exist_ok=True)
 
                     failed_path = failed_dir / library_path.name
-                    counter = 1
-                    while failed_path.exists():
-                        failed_path = failed_dir / f"{library_path.name}_{counter}"
-                        counter += 1
+                    if failed_path.exists():
+                        # Replace existing failed copy instead of accumulating
+                        shutil.rmtree(failed_path, ignore_errors=True)
 
                     shutil.move(str(library_path), str(failed_path))
                     logger.info(f"Moved failed import to: {failed_path}")
@@ -678,10 +677,9 @@ class DownloadService:
         review_dir.mkdir(parents=True, exist_ok=True)
 
         review_path = review_dir / path.name
-        counter = 1
-        while review_path.exists():
-            review_path = review_dir / f"{path.name}_{counter}"
-            counter += 1
+        if review_path.exists():
+            # Same album already in review -- replace instead of creating duplicates
+            shutil.rmtree(review_path, ignore_errors=True)
 
         # Move files
         shutil.move(str(path), str(review_path))
