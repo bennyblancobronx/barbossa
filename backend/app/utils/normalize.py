@@ -17,6 +17,10 @@ def normalize_text(text: str) -> str:
     if not text:
         return ""
 
+    # Ensure string type (ExifTool/beets can return numeric values)
+    if not isinstance(text, str):
+        text = str(text)
+
     # Normalize unicode
     text = unicodedata.normalize("NFKD", text)
 

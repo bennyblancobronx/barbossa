@@ -1,10 +1,17 @@
 # Changelog
 
+## [0.1.139] - 2026-01-28
+
+### TL;DR
+- Fix "'float' object has no attribute 'lower'" at root cause: exiftool `-n` flag returns numeric values for text tags (artist, album, title, genre, composer, label)
+- Guard `normalize_text()` against non-string input
+- Guard exiftool metadata extraction with `str()` cast on all text fields
+- Docker rebuild required
+
 ## [0.1.138] - 2026-01-28
 
 ### TL;DR
-- Fix "'float' object has no attribute 'lower'" crash when track metadata has non-string artist values
-- Requires Docker rebuild for v0.1.137 compilation fixes to take effect (image-based, not volume-mounted)
+- Additional str() guards in import_service.py for metadata artist values
 
 ## [0.1.137] - 2026-01-28
 

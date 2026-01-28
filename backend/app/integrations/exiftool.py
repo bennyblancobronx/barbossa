@@ -163,12 +163,17 @@ class ExifToolClient:
             explicit_raw in ["1", "true", True, 1]
         )
 
+        def get_str(*keys):
+            """Get first non-empty value as string (guards against numeric tags)."""
+            val = get_first(*keys)
+            return str(val) if val is not None else None
+
         return {
-            # Core
-            "title": get_first("Title"),
-            "artist": get_first("AlbumArtist", "Artist"),
-            "album": get_first("Album"),
-            "album_artist": get_first("AlbumArtist"),
+            # Core (use get_str for text fields - exiftool -n can return numerics)
+            "title": get_str("Title"),
+            "artist": get_str("AlbumArtist", "Artist"),
+            "album": get_str("Album"),
+            "album_artist": get_str("AlbumArtist"),
             "track_number": self._parse_track_number(get_first("TrackNumber")),
             "disc_number": self._parse_disc_number(get_first("DiscNumber")) or 1,
             "year": year,
@@ -184,10 +189,10 @@ class ExifToolClient:
             "is_lossy": is_lossy,
 
             # Extended metadata
-            "genre": get_first("Genre"),
-            "composer": get_first("Composer"),
-            "label": get_first("Label", "Publisher"),
-            "catalog_number": get_first("CatalogNumber"),
+            "genre": get_str("Genre"),
+            "composer": get_str("Composer"),
+            "label": get_str("Label", "Publisher"),
+            "catalog_number": get_str("CatalogNumber"),
             "isrc": self._normalize_isrc(get_first("ISRC")),
             "is_compilation": is_compilation,
             "explicit": is_explicit,
