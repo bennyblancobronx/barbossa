@@ -103,6 +103,26 @@ manager = ConnectionManager()
 
 
 # Convenience functions for broadcasts
+async def broadcast_download_queued(
+    download_id: int,
+    user_id: int,
+    source: str,
+    source_url: Optional[str] = None,
+    search_query: Optional[str] = None
+):
+    """Broadcast new download added to queue."""
+    message = {
+        "type": "download:queued",
+        "download_id": download_id,
+        "source": source,
+        "source_url": source_url,
+        "search_query": search_query,
+        "status": "pending",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    await manager.send_to_user(user_id, message)
+
+
 async def broadcast_download_progress(
     download_id: int,
     user_id: int,

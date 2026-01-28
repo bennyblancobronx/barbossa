@@ -111,15 +111,28 @@ def download_qobuz_task(
         except self.MaxRetriesExceededError:
             # Update status to failed
             db = SessionLocal()
+            user_id = None
             try:
                 from app.models.download import Download, DownloadStatus
                 download = db.query(Download).filter(Download.id == download_id).first()
                 if download:
                     download.status = DownloadStatus.FAILED.value
                     download.error_message = str(e)
+                    user_id = download.user_id
                     db.commit()
             finally:
                 db.close()
+
+            # Broadcast failure via WebSocket
+            if user_id:
+                try:
+                    from app.websocket import broadcast_download_error
+                    loop = _get_event_loop()
+                    loop.run_until_complete(
+                        broadcast_download_error(download_id, user_id, str(e))
+                    )
+                except Exception:
+                    pass
             return {"status": "failed", "error": str(e)}
 
 
@@ -213,15 +226,28 @@ def download_url_task(
             self.retry(exc=e, countdown=30)
         except self.MaxRetriesExceededError:
             db = SessionLocal()
+            user_id = None
             try:
                 from app.models.download import Download, DownloadStatus
                 download = db.query(Download).filter(Download.id == download_id).first()
                 if download:
                     download.status = DownloadStatus.FAILED.value
                     download.error_message = str(e)
+                    user_id = download.user_id
                     db.commit()
             finally:
                 db.close()
+
+            # Broadcast failure via WebSocket
+            if user_id:
+                try:
+                    from app.websocket import broadcast_download_error
+                    loop = _get_event_loop()
+                    loop.run_until_complete(
+                        broadcast_download_error(download_id, user_id, str(e))
+                    )
+                except Exception:
+                    pass
             return {"status": "failed", "error": str(e)}
 
 

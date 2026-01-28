@@ -17,7 +17,7 @@ from app.schemas.download import (
 )
 from app.services.download import DownloadService
 from app.tasks.downloads import download_qobuz_task, download_url_task
-from app.websocket import manager
+from app.websocket import manager, broadcast_download_queued
 
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
@@ -85,6 +85,15 @@ async def download_from_qobuz(
     download.started_at = datetime.utcnow()
     db.commit()
 
+    # Notify frontend in real time
+    await broadcast_download_queued(
+        download_id=download.id,
+        user_id=user.id,
+        source=download.source,
+        source_url=download.source_url,
+        search_query=download.search_query
+    )
+
     return download
 
 
@@ -135,6 +144,15 @@ async def download_from_url(
     download.celery_task_id = task.id
     download.started_at = datetime.utcnow()
     db.commit()
+
+    # Notify frontend in real time
+    await broadcast_download_queued(
+        download_id=download.id,
+        user_id=user.id,
+        source=download.source,
+        source_url=download.source_url,
+        search_query=download.search_query
+    )
 
     return download
 

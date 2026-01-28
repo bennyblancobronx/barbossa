@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.143] - 2026-01-28
+
+### TL;DR
+- Fix download count badge in sidebar not updating in real time
+- Badge now reacts instantly to new downloads, completions, and failures via WebSocket
+- Download store is populated on WebSocket connect (not just when Downloads page is mounted)
+- Backend now broadcasts download:queued event when new downloads are created
+- Backend now broadcasts download:error on Celery task max retry failure
+- Prevent duplicate WebSocket connections when connectWebSocket is called multiple times
+- Prevent duplicate download entries in store when WS event and API response race
+
 ## [0.1.142] - 2026-01-28
 
 ### TL;DR

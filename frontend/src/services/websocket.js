@@ -2,14 +2,28 @@ import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
 import { useDownloadStore } from '../stores/downloads'
 import { queryClient } from '../queryClient'
+import { getDownloads } from './api'
 
 let socket = null
 let reconnectTimeout = null
 const RECONNECT_DELAY = 5000
 
+function fetchDownloadQueue() {
+  getDownloads()
+    .then(r => {
+      useDownloadStore.getState().setDownloads(r.data.items || r.data || [])
+    })
+    .catch(() => {})
+}
+
 export function connectWebSocket() {
   const token = useAuthStore.getState().token
   if (!token) return
+
+  // Prevent duplicate connections
+  if (socket && (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN)) {
+    return
+  }
 
   const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${token}`
 
@@ -21,6 +35,8 @@ export function connectWebSocket() {
     socket.send(JSON.stringify({ type: 'subscribe', channel: 'activity' }))
     socket.send(JSON.stringify({ type: 'subscribe', channel: 'library' }))
     socket.send(JSON.stringify({ type: 'subscribe', channel: 'downloads' }))
+    // Populate download store so sidebar badge is accurate from the start
+    fetchDownloadQueue()
   }
 
   socket.onmessage = (event) => {
@@ -55,6 +71,19 @@ function handleMessage(data) {
       // Connection alive
       break
 
+    case 'download:queued':
+      // New download created - add to store so sidebar badge updates immediately
+      useDownloadStore.getState().addDownload({
+        id: data.download_id,
+        source: data.source,
+        source_url: data.source_url,
+        search_query: data.search_query,
+        status: 'pending',
+        progress: 0
+      })
+      queryClient.invalidateQueries('downloads')
+      break
+
     case 'download:progress':
       useDownloadStore.getState().updateProgress(
         data.download_id,
@@ -65,6 +94,9 @@ function handleMessage(data) {
       break
 
     case 'download:complete':
+      useDownloadStore.getState().updateDownloadStatus(
+        data.download_id, 'complete'
+      )
       useNotificationStore.getState().addNotification({
         type: 'success',
         message: `Download complete: ${data.album_title || data.title || 'Album'}`
@@ -82,10 +114,14 @@ function handleMessage(data) {
       break
 
     case 'download:error':
+      useDownloadStore.getState().updateDownloadStatus(
+        data.download_id, 'failed', { error_message: data.error }
+      )
       useNotificationStore.getState().addNotification({
         type: 'error',
         message: `Download failed: ${data.error || 'Unknown error'}`
       })
+      queryClient.invalidateQueries('downloads')
       break
 
     case 'import:complete':

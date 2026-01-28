@@ -312,6 +312,7 @@ Connect: `ws://localhost:8080/ws?token=<jwt>`
 | Event | Direction | Description |
 |-------|-----------|-------------|
 | `heartbeat` | Server->Client | Connection keepalive (every 30s) |
+| `download:queued` | Server->Client | New download added to queue |
 | `download:progress` | Server->Client | Download progress update |
 | `download:complete` | Server->Client | Download finished |
 | `download:error` | Server->Client | Download failed |
