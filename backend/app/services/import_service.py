@@ -216,7 +216,7 @@ class ImportService:
         first_track = tracks_metadata[0]
 
         # Check artist
-        artist = first_track.get("artist") or ""
+        artist = str(first_track.get("artist") or "")
         artist_lower = artist.lower().strip()
 
         is_comp = self._detect_compilation(tracks_metadata)
@@ -383,7 +383,7 @@ class ImportService:
                 raise MetadataValidationError(issues)
 
         # Find or create artist - validation passed, so we know artist is valid
-        artist_name = first_track.get("artist")
+        artist_name = str(first_track.get("artist") or "")
         is_comp = self._detect_compilation(tracks_metadata)
         if not artist_name or (artist_name.lower().strip() in INVALID_ARTIST_PATTERNS and not is_comp):
             # This shouldn't happen if validation is on, but be safe
@@ -787,7 +787,7 @@ class ImportService:
         artists = set()
         generic_artists = {"various artists", "va", "various", ""}
         for meta in tracks_metadata:
-            artist = (meta.get("artist") or "").lower().strip()
+            artist = str(meta.get("artist") or "").lower().strip()
             if artist and artist not in generic_artists:
                 artists.add(artist)
 
