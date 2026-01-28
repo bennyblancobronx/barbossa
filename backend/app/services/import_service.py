@@ -227,8 +227,8 @@ class ImportService:
         album = first_track.get("album") or ""
         if not album:
             issues.append("Missing album title")
-        elif album == folder_name:
-            # Album title is just the folder name - suspicious
+        elif album == folder_name and album == (first_track.get("title") or ""):
+            # Album title matches both folder name AND track title - likely missing tags
             issues.append(f"Album title matches folder name (possibly missing tag): '{album}'")
 
         # Check track titles

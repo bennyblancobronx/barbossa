@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.141] - 2026-01-28
+
+### TL;DR
+- Fix false positive "album title matches folder name" validation error after beets import (beets names folders from album tag, so they always match)
+- Only flag when album title also matches track title (indicating genuinely missing tags)
+
 ## [0.1.140] - 2026-01-28
 
 ### TL;DR
