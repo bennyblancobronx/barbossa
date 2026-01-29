@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.151] - 2026-01-29
+
+### TL;DR
+- Fix pending_review items stuck in download queue after approve/dismiss
+- Review approve now updates the download record to "complete" (was only updating the review table, leaving the download stuck as pending_review forever)
+- Review reject now updates the download record to "cancelled"
+- Allow dismissing pending_review downloads from the queue (was blocked by delete endpoint)
+- Dismissing a pending_review download also rejects the linked review record (prevents orphans)
+
 ## [0.1.150] - 2026-01-29
 
 ### TL;DR

@@ -8,6 +8,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.download import Download, DownloadStatus, DownloadSource
+from app.models.pending_review import PendingReview, PendingReviewStatus
 from app.schemas.download import (
     DownloadCreate,
     DownloadResponse,
@@ -336,13 +337,25 @@ async def delete_download(
         DownloadStatus.COMPLETE.value,
         DownloadStatus.DUPLICATE.value,
         DownloadStatus.FAILED.value,
-        DownloadStatus.CANCELLED.value
+        DownloadStatus.CANCELLED.value,
+        DownloadStatus.PENDING_REVIEW.value
     ]
     if download.status not in deletable_statuses:
         raise HTTPException(
             status_code=400,
             detail="Cannot delete active download. Cancel first."
         )
+
+    # If dismissing a pending_review download, also reject the review record
+    if download.status == DownloadStatus.PENDING_REVIEW.value and download.result_review_id:
+        review = db.query(PendingReview).filter(
+            PendingReview.id == download.result_review_id
+        ).first()
+        if review and review.status == PendingReviewStatus.PENDING:
+            review.status = PendingReviewStatus.REJECTED
+            review.reviewed_by = user.id
+            review.reviewed_at = datetime.utcnow()
+            review.notes = "Dismissed from download queue"
 
     db.delete(download)
     db.commit()

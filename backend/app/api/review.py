@@ -10,6 +10,7 @@ from app.database import get_db
 from app.dependencies import get_current_admin_user, get_current_user
 from app.models.user import User
 from app.models.pending_review import PendingReview, PendingReviewStatus
+from app.models.download import Download, DownloadStatus
 from app.schemas.review import ReviewResponse, ApproveRequest, RejectRequest
 from app.services.import_service import ImportService
 from app.integrations.beets import BeetsClient
@@ -128,6 +129,16 @@ async def approve_import(
         review.status = PendingReviewStatus.APPROVED
         review.reviewed_by = current_user.id
         review.reviewed_at = datetime.now(timezone.utc)
+
+        # Update the associated download record so it clears from the queue
+        linked_download = db.query(Download).filter(
+            Download.result_review_id == review_id
+        ).first()
+        if linked_download:
+            linked_download.status = DownloadStatus.COMPLETE.value
+            linked_download.result_album_id = album.id
+            linked_download.completed_at = datetime.now(timezone.utc)
+
         db.commit()
 
         return {"status": "approved", "album_id": album.id}
@@ -173,6 +184,15 @@ async def reject_import(
     review.reviewed_by = current_user.id
     review.reviewed_at = datetime.now(timezone.utc)
     review.notes = data.reason
+
+    # Update the associated download record so it clears from the queue
+    linked_download = db.query(Download).filter(
+        Download.result_review_id == review_id
+    ).first()
+    if linked_download:
+        linked_download.status = DownloadStatus.CANCELLED.value
+        linked_download.completed_at = datetime.now(timezone.utc)
+
     db.commit()
 
     return {"status": "rejected"}
