@@ -329,17 +329,9 @@ class BeetsClient:
                 else:
                     shutil.copy2(str(file), str(dest))
 
-        # Tag files with provided metadata
-        if self._use_api:
-            await self._tag_files_api(target_dir, artist, album, year)
-        else:
-            # Run beet import on the new location to fix tags
-            # Note: -c must come BEFORE subcommand
-            cmd = ["beet"]
-            if self.config_path.exists():
-                cmd.extend(["-c", str(self.config_path)])
-            cmd.extend(["import", "--quiet", str(target_dir)])
-            await self._run_command(cmd, allow_failure=True)
+        # Tag files with provided metadata -- always use direct tagging,
+        # never beet import (which can move files out of target_dir)
+        await self._tag_files_api(target_dir, artist, album, year)
 
         # Clean up empty source directory
         if move and path.exists() and not any(path.iterdir()):

@@ -108,12 +108,12 @@ async def approve_import(
         # Extract metadata
         tracks_metadata = await exiftool.get_album_metadata(library_path)
 
-        # Import to database
+        # Import to database -- preserve original source from review record
         album = await import_service.import_album(
             path=library_path,
             tracks_metadata=tracks_metadata,
-            source="import",
-            source_url="",
+            source=review.source or "import",
+            source_url=review.source_url or "",
             imported_by=current_user.id,
             confidence=1.0
         )

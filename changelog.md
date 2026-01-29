@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.148] - 2026-01-28
+
+### TL;DR
+- Fix "No tracks found" when approving review items -- beet import was moving files out of target directory, leaving it empty
+- Preserve original source (qobuz, youtube, etc.) when approving review items instead of hardcoding "import"
+
 ## [0.1.147] - 2026-01-28
 
 ### TL;DR
