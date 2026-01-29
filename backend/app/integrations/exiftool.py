@@ -175,7 +175,11 @@ class ExifToolClient:
             "album": get_str("Album"),
             "album_artist": get_str("AlbumArtist"),
             "track_number": self._parse_track_number(get_first("TrackNumber")),
-            "disc_number": self._parse_disc_number(get_first("DiscNumber")) or 1,
+            "disc_number": (
+                self._parse_disc_number(get_first("DiscNumber", "Discnumber"))
+                or self._infer_disc_from_path(path)
+                or 1
+            ),
             "year": year,
 
             # Quality
@@ -236,6 +240,13 @@ class ExifToolClient:
             return int(value_str)
         except ValueError:
             return None
+
+    def _infer_disc_from_path(self, path: Path) -> int | None:
+        """Infer disc number from parent folder name (e.g., 'Disc 2', 'CD1')."""
+        import re
+        parent = path.parent.name.lower().strip()
+        match = re.match(r'^(?:disc|disk|cd)[\s_-]*(\d+)', parent)
+        return int(match.group(1)) if match else None
 
     def _parse_disc_number(self, value) -> int | None:
         """Parse disc number from various formats (e.g., '1/2' or '1')."""

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.150] - 2026-01-29
+
+### TL;DR
+- Fix disc number detection: ExifTool returns "Discnumber" (lowercase n) but code expected "DiscNumber" -- all tracks defaulted to disc 1
+- Add path-based disc inference fallback (parses "Disc 2/", "CD1/" folder names) for files lacking the tag entirely
+
 ## [0.1.149] - 2026-01-29
 
 ### TL;DR
