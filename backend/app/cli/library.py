@@ -459,3 +459,136 @@ def my_library(
             console.print("[yellow]Your library is empty. Use 'barbossa library heart' to add albums.[/yellow]")
     finally:
         db.close()
+
+
+@app.command("backfill-years")
+def backfill_years(
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Show what would be done without making changes"),
+):
+    """Backfill missing album years from folder names, file metadata, MusicBrainz, and Qobuz.
+
+    Finds all albums with NULL or 0 year and tries to recover from:
+    1. Folder name pattern (YYYY) -- fast, no IO
+    2. ExifTool re-read of audio files
+    3. Beets/MusicBrainz lookup
+    4. Qobuz API search -- searches by artist + album title
+    """
+    import asyncio
+    import re
+    from pathlib import Path
+    from app.database import SessionLocal
+    from app.models.album import Album
+
+    db = SessionLocal()
+    try:
+        from sqlalchemy import or_
+        albums = db.query(Album).filter(or_(Album.year.is_(None), Album.year == 0)).all()
+        console.print(f"Found {len(albums)} albums with missing year")
+
+        if not albums:
+            return
+
+        fixed_folder = 0
+        fixed_exiftool = 0
+        fixed_beets = 0
+        fixed_qobuz = 0
+        failed = 0
+
+        async def process():
+            nonlocal fixed_folder, fixed_exiftool, fixed_beets, fixed_qobuz, failed
+            from app.integrations.exiftool import ExifToolClient
+            from app.integrations.beets import BeetsClient
+            from app.integrations.qobuz_api import get_qobuz_api
+
+            exiftool = ExifToolClient()
+            beets = BeetsClient()
+            qobuz = get_qobuz_api()
+
+            for album in albums:
+                album_path = Path(album.path) if album.path else None
+                artist_name = album.artist.name if album.artist else None
+
+                # 1. Try folder name
+                if album_path:
+                    match = re.search(r'\((\d{4})\)', album_path.name)
+                    if match:
+                        year = int(match.group(1))
+                        if dry_run:
+                            console.print(f"  [folder] {album.title} -> {year}")
+                        else:
+                            album.year = year
+                        fixed_folder += 1
+                        continue
+
+                # 2. Try ExifTool re-read
+                if album_path and album_path.exists():
+                    try:
+                        tracks_meta = await exiftool.get_album_metadata(album_path)
+                        if tracks_meta and tracks_meta[0].get("year"):
+                            year = tracks_meta[0]["year"]
+                            if dry_run:
+                                console.print(f"  [exiftool] {album.title} -> {year}")
+                            else:
+                                album.year = year
+                            fixed_exiftool += 1
+                            continue
+                    except Exception:
+                        pass
+
+                    # 3. Try beets/MusicBrainz lookup
+                    try:
+                        identification = await beets.identify(album_path)
+                        beets_year = identification.get("year")
+                        if beets_year and int(beets_year) >= 1000:
+                            year = int(beets_year)
+                            if dry_run:
+                                console.print(f"  [musicbrainz] {album.title} -> {year}")
+                            else:
+                                album.year = year
+                            fixed_beets += 1
+                            continue
+                    except Exception:
+                        pass
+
+                # 4. Try Qobuz API search (works even if path is missing)
+                if artist_name:
+                    try:
+                        query = f"{artist_name} {album.title}"
+                        results = await qobuz.search_albums(query, limit=5)
+                        found = False
+                        for r in results:
+                            if artist_name.lower() in r.get("artist_name", "").lower():
+                                qobuz_year = r.get("year")
+                                if qobuz_year:
+                                    parsed = int(str(qobuz_year)[:4])
+                                    if 1000 <= parsed <= 9999:
+                                        if dry_run:
+                                            console.print(f"  [qobuz] {album.title} -> {parsed}")
+                                        else:
+                                            album.year = parsed
+                                        fixed_qobuz += 1
+                                        found = True
+                                        break
+                        if found:
+                            continue
+                    except Exception:
+                        pass
+
+                failed += 1
+                console.print(f"  [unknown] {album.title} -- no year found")
+
+        asyncio.run(process())
+
+        if not dry_run:
+            db.commit()
+
+        console.print(f"\nResults:")
+        console.print(f"  From folder name: {fixed_folder}")
+        console.print(f"  From file metadata: {fixed_exiftool}")
+        console.print(f"  From MusicBrainz: {fixed_beets}")
+        console.print(f"  From Qobuz API: {fixed_qobuz}")
+        console.print(f"  Could not determine: {failed}")
+        if dry_run:
+            console.print("\n[yellow]Dry run -- no changes made[/yellow]")
+    finally:
+        db.close()

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.152] - 2026-01-28
+
+### TL;DR
+- Fix album years not being recorded during import across all paths
+- Year from beets/MusicBrainz and Qobuz API was not being merged into track metadata before DB insert
+- Fix in all 11 import paths: Qobuz download, URL download, watch folder (auto + review), CLI import, CLI rescan, Celery tasks (auto + review), Bandcamp sync, review approval, album replacement
+- Fix ExifTool year type safety: ensure int, reject year=0 as invalid (must be 1000-9999)
+- Fix beets mediafile year=0 leaking through as valid (sanitize at source)
+- Fix Qobuz year merge missing range validation
+- Populate suggested_year in all pending review creation paths (download, watcher, celery, import_service)
+- Add backfill-years CLI command with 4-tier recovery: folder name, ExifTool, MusicBrainz, Qobuz API search
+- Add year recovery to library scan maintenance task
+
 ## [0.1.151] - 2026-01-29
 
 ### TL;DR

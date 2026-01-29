@@ -123,14 +123,25 @@ class ExifToolClient:
         is_lossy = file_type.lower() in self.LOSSY_FORMATS
 
         # Extract year from various tag formats (Qobuz uses DATE)
-        year = get_first("Year")
+        # Reject 0 and anything outside 1000-9999 as invalid
+        year = None
+        year_raw = get_first("Year")
+        if year_raw is not None:
+            try:
+                parsed = int(year_raw)
+                if 1000 <= parsed <= 9999:
+                    year = parsed
+            except (ValueError, TypeError):
+                pass
         if not year:
             date_str = get_first("Date", "OriginalDate") or ""
             if date_str and len(str(date_str)) >= 4:
                 try:
-                    year = int(str(date_str)[:4])
+                    parsed = int(str(date_str)[:4])
+                    if 1000 <= parsed <= 9999:
+                        year = parsed
                 except ValueError:
-                    year = None
+                    pass
 
         # Extract lyrics from multiple possible tags
         lyrics = get_first("Lyrics", "UnsyncedLyrics", "USLT")

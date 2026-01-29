@@ -91,6 +91,10 @@ class DownloadService:
             if identification.get("catalog_number") and not first_track.get("catalog_number"):
                 first_track["catalog_number"] = identification["catalog_number"]
 
+            # Year from beets/MusicBrainz
+            if identification.get("year") and not first_track.get("year"):
+                first_track["year"] = identification["year"]
+
             # Artist country from MusicBrainz (ISO 3166-1 alpha-2)
             if identification.get("country") and not first_track.get("artist_country"):
                 first_track["artist_country"] = identification["country"]
@@ -171,6 +175,16 @@ class DownloadService:
             if qobuz_album.get("genre") and not first_track.get("genre"):
                 first_track["genre"] = qobuz_album["genre"]
                 logger.debug(f"Merged Qobuz genre: {qobuz_album['genre']}")
+
+            # Year from Qobuz API (string from _parse_album, convert to int)
+            qobuz_year = qobuz_album.get("year")
+            if qobuz_year and not first_track.get("year"):
+                try:
+                    parsed = int(qobuz_year)
+                    if 1000 <= parsed <= 9999:
+                        first_track["year"] = parsed
+                except (ValueError, TypeError):
+                    pass
 
             # QOB-003: UPC/barcode from Qobuz API
             if qobuz_album.get("upc"):
@@ -775,6 +789,7 @@ class DownloadService:
             path=str(review_path),
             suggested_artist=identification.get("artist"),
             suggested_album=identification.get("album"),
+            suggested_year=identification.get("year"),
             beets_confidence=identification.get("confidence", 0),
             track_count=track_count,
             quality_info=quality_info,

@@ -1434,6 +1434,11 @@ docker compose exec barbossa python -m app.cli.main library rebuild-symlinks [OP
 docker compose exec barbossa python -m app.cli.main library fix-symlinks [OPTIONS]
 #   --user, -u      Fix specific user only
 #   --dry-run       Preview changes without modifying
+
+# Backfill missing album years (NULL or 0)
+docker compose exec barbossa python -m app library backfill-years [OPTIONS]
+#   --dry-run, -n   Show what would be done without making changes
+# Recovery tiers: 1) folder name (YYYY), 2) ExifTool re-read, 3) MusicBrainz, 4) Qobuz API search
 ```
 
 ---

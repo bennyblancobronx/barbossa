@@ -99,7 +99,7 @@ class BeetsClient:
                 mf = mediafile.MediaFile(str(audio_files[0]))
                 local_artist = mf.artist or mf.albumartist or ""
                 local_album = mf.album or ""
-                local_year = mf.year
+                local_year = mf.year if mf.year and mf.year >= 1000 else None
             except Exception as e:
                 logger.warning(f"Failed to read metadata: {e}")
                 local_artist = ""

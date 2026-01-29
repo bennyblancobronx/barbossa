@@ -38,6 +38,10 @@ def merge_beets_identification(
         if identification.get("catalog_number") and not first_track.get("catalog_number"):
             first_track["catalog_number"] = identification["catalog_number"]
 
+        # Year from beets/MusicBrainz
+        if identification.get("year") and not first_track.get("year"):
+            first_track["year"] = identification["year"]
+
         # Artist country from MusicBrainz (ISO 3166-1 alpha-2)
         if identification.get("country") and not first_track.get("artist_country"):
             first_track["artist_country"] = identification["country"]
@@ -175,6 +179,7 @@ def process_import(self, folder_path: str):
                     path=str(review_path),
                     suggested_artist=identification.get("artist"),
                     suggested_album=identification.get("album"),
+                    suggested_year=identification.get("year"),
                     beets_confidence=confidence,
                     track_count=file_count,
                     quality_info=quality_info,
@@ -233,6 +238,7 @@ def process_import(self, folder_path: str):
                     path=str(review_path),
                     suggested_artist=identification.get("artist"),
                     suggested_album=identification.get("album"),
+                    suggested_year=identification.get("year"),
                     beets_confidence=confidence,
                     track_count=file_count,
                     quality_info=quality_info,

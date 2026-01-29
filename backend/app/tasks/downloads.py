@@ -298,6 +298,13 @@ def sync_bandcamp_task(self) -> dict:
                 if not tracks:
                     continue
 
+                # Try to extract year from folder name as fallback
+                if tracks and not tracks[0].get("year"):
+                    import re
+                    match = re.search(r'\((\d{4})\)', path.name)
+                    if match:
+                        tracks[0]["year"] = int(match.group(1))
+
                 # Check for duplicates
                 first_track = tracks[0]
                 existing = import_service.find_duplicate(

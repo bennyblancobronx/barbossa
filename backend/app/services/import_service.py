@@ -596,6 +596,10 @@ class ImportService:
         # Phase 7: UPC from Qobuz API
         if not album.upc and first_track.get("upc"):
             album.upc = first_track.get("upc")
+        # Year from new import
+        new_year = first_track.get("year")
+        if new_year and not album.year:  # covers None and 0
+            album.year = new_year
 
         # Add new tracks
         for i, meta in enumerate(tracks_metadata):
@@ -681,11 +685,18 @@ class ImportService:
         suggested_album = None
         confidence = 0.0
 
+        suggested_year = None
+
         for line in beets_output.split("\n"):
             if "Artist:" in line:
                 suggested_artist = line.split(":", 1)[1].strip()
             elif "Album:" in line:
                 suggested_album = line.split(":", 1)[1].strip()
+            elif "Year:" in line:
+                try:
+                    suggested_year = int(line.split(":", 1)[1].strip())
+                except ValueError:
+                    pass
             elif "Similarity:" in line:
                 import re
                 match = re.search(r"(\d+\.?\d*)%", line)
@@ -699,6 +710,7 @@ class ImportService:
             path=str(path),
             suggested_artist=suggested_artist,
             suggested_album=suggested_album,
+            suggested_year=suggested_year,
             beets_confidence=confidence,
             track_count=track_count,
             quality_info=quality_info,

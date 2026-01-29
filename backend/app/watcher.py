@@ -295,6 +295,7 @@ class ImportWatcher(FileSystemEventHandler):
                 path=str(review_dest),
                 suggested_artist=identification.get("artist"),
                 suggested_album=identification.get("album"),
+                suggested_year=identification.get("year"),
                 beets_confidence=identification.get("confidence", 0),
                 track_count=file_count,
                 quality_info=quality_info,

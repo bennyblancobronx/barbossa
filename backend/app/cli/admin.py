@@ -183,6 +183,9 @@ def rescan(
                     async def do_import():
                         identification = await beets.identify(album_dir)
                         tracks_metadata = await exiftool.get_album_metadata(album_dir)
+                        # Merge beets identification data (year, MusicBrainz IDs, etc.)
+                        from app.tasks.imports import merge_beets_identification
+                        tracks_metadata = merge_beets_identification(tracks_metadata, identification)
 
                         await import_service.import_album(
                             path=album_dir,
@@ -299,6 +302,9 @@ def import_album(
             # Extract metadata and save to database
             console.print("Extracting metadata...")
             tracks_metadata = await exiftool.get_album_metadata(library_path)
+            # Merge beets identification data (year, MusicBrainz IDs, etc.)
+            from app.tasks.imports import merge_beets_identification
+            tracks_metadata = merge_beets_identification(tracks_metadata, identification)
 
             imported = await import_service.import_album(
                 path=library_path,

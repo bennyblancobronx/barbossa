@@ -508,8 +508,20 @@ def scan_library():
                     ).first()
 
                     if existing:
+                        # Update album year if missing (None or 0)
+                        if not existing.year:
+                            import re
+                            year_match = re.search(r'\((\d{4})\)', album_dir.name)
+                            if year_match:
+                                existing.year = int(year_match.group(1))
+
                         # Update track metadata
                         tracks_meta = await exiftool.get_album_metadata(album_dir)
+
+                        # Also backfill year from track metadata if still missing
+                        if not existing.year and tracks_meta and tracks_meta[0].get("year"):
+                            existing.year = tracks_meta[0]["year"]
+
                         for meta in tracks_meta:
                             track = db.query(Track).filter(
                                 Track.path == meta.get("path")

@@ -372,6 +372,7 @@ CREATE TABLE pending_review (
     path VARCHAR(512) NOT NULL,
     suggested_artist VARCHAR(255),
     suggested_album VARCHAR(255),
+    suggested_year INT,
     beets_confidence FLOAT,
     track_count INT,
     quality_info JSONB,
