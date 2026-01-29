@@ -532,7 +532,7 @@ Qobuz is a trusted source -- it has its own API with rich metadata, so we don't 
 
 1. **Confidence check skipped** (`min_confidence=0.0`) -- any beets confidence is accepted.
 2. **Qobuz API metadata as fallback** -- if MusicBrainz is down or can't identify the album, artist/album names come from the Qobuz API instead of failing.
-3. **Non-strict validation** -- only truly missing data (no artist at all, no track titles at all) triggers review. Generic track names, inconsistent tags, folder-matching album titles are all accepted.
+3. **Metadata validation skipped entirely** -- trusted sources bypass `validate_metadata()` completely. The Qobuz API metadata is authoritative; embedded file tags are irrelevant.
 4. **No redundant validation** -- `import_service.import_album()` skips its own `validate_metadata()` since the caller already validated.
 5. **Beets crash recovery** -- if `beet import` itself fails, falls back to `import_with_metadata()` which moves files directly using the Qobuz API metadata for naming.
 6. **No Celery retry on review/duplicate** -- `NeedsReviewError` and `DuplicateError` are terminal states, not retried.

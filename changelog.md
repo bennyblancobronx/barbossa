@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.146] - 2026-01-28
+
+### TL;DR
+- Skip metadata validation entirely for trusted sources (Qobuz) -- embedded file tags are irrelevant when API metadata is authoritative
+- Add Approve/Dismiss buttons to pending_review items directly on the Downloads page
+- Expose result_review_id in download API response so frontend can act on review items
+
 ## [0.1.145] - 2026-01-28
 
 ### TL;DR

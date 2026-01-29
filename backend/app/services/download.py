@@ -529,23 +529,24 @@ class DownloadService:
             raise NeedsReviewError(review.id, confidence)
 
         # Pre-validate metadata before expensive beets import
-        # Skip strict validation for trusted sources (Qobuz) - they have good metadata
-        # from the API, and minor tag issues shouldn't block import
+        # Trusted sources (Qobuz) skip validation entirely -- the API metadata
+        # is authoritative, and embedded file tags are irrelevant
         tracks_metadata_raw = await self.exiftool.get_album_metadata(path)
-        is_valid, issues = self.import_service.validate_metadata(
-            tracks_metadata_raw,
-            folder_name=path.name,
-            strict=not trusted
-        )
-        if not is_valid:
-            review = await self._move_to_review(
-                path=path,
-                identification=identification,
-                source=source,
-                source_url=source_url,
-                note=f"Metadata validation failed: {'; '.join(issues)}"
+        if not trusted:
+            is_valid, issues = self.import_service.validate_metadata(
+                tracks_metadata_raw,
+                folder_name=path.name,
+                strict=True
             )
-            raise NeedsReviewError(review.id, 0.0)
+            if not is_valid:
+                review = await self._move_to_review(
+                    path=path,
+                    identification=identification,
+                    source=source,
+                    source_url=source_url,
+                    note=f"Metadata validation failed: {'; '.join(issues)}"
+                )
+                raise NeedsReviewError(review.id, 0.0)
 
         # Check duplicates (validation passed, so artist should be valid)
         # Use artist from raw metadata if beets didn't identify

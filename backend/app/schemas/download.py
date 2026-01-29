@@ -42,6 +42,7 @@ class DownloadResponse(BaseModel):
     eta: Optional[str] = None
     error_message: Optional[str] = None
     result_album_id: Optional[int] = None
+    result_review_id: Optional[int] = None
     celery_task_id: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None

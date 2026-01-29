@@ -136,19 +136,20 @@ When content not in local library:
 - Types: download complete, import complete, quality upgrade, error
 
 ### Pending Review Queue
+
+Downloads that need manual review (low confidence match, missing metadata) show inline on the Downloads page with action buttons:
+
 ```
-Settings > Pending Review (3 items)
+Downloads > Download Queue
 +-------------------------------------------------------------+
-| 1. Unknown Album (12 tracks)                                |
-|    Path: /music/import/review/unknown_folder/               |
-|    Quality: 16-bit/44.1kHz FLAC                            |
-|    Beets confidence: 45%                                    |
-|                                                             |
-|    Suggested: "Artist - Similar Album (2019)"               |
-|                                                             |
-|    [Accept Suggestion] [Manual Tag] [Reject] [Keep as-is]  |
+| [qobuz] https://www.qobuz.com/us-en/album/...              |
+|    pending_review - Needs manual review                     |
+|                                        [Approve] [Dismiss]  |
 +-------------------------------------------------------------+
 ```
+
+- **Approve** - Accepts the suggested match and imports to library
+- **Dismiss** - Removes the download record from the queue
 
 ---
 

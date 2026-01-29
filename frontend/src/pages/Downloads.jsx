@@ -78,6 +78,19 @@ export default function Downloads() {
     }
   )
 
+  const approveReview = useMutation(
+    (reviewId) => api.approveImport(reviewId, {}),
+    {
+      onSuccess: () => {
+        addNotification({ type: 'success', message: 'Import approved' })
+        queryClient.invalidateQueries('downloads')
+      },
+      onError: (error) => {
+        addNotification({ type: 'error', message: error.response?.data?.detail || 'Approve failed' })
+      }
+    }
+  )
+
   // Separate active downloads from failed ones
   const activeDownloads = downloads.filter(d => d.status !== 'failed')
   const failedDownloads = downloads.filter(d => d.status === 'failed')
@@ -134,6 +147,9 @@ export default function Downloads() {
                 key={download.id}
                 download={download}
                 onCancel={() => cancelDownload.mutate(download.id)}
+                onApproveReview={(reviewId) => approveReview.mutate(reviewId)}
+                onDismissReview={(id) => dismissDownload.mutate(id)}
+                isApproving={approveReview.isLoading}
               />
             ))}
           </div>
@@ -236,7 +252,7 @@ function LidarrSearch() {
   )
 }
 
-function DownloadItem({ download, onCancel }) {
+function DownloadItem({ download, onCancel, onApproveReview, onDismissReview, isApproving }) {
   const statusColors = {
     pending: 'text-muted',
     downloading: 'text-primary',
@@ -276,7 +292,7 @@ function DownloadItem({ download, onCancel }) {
 
         {download.status === 'pending_review' && (
           <span className="download-review text-warning">
-            {download.error_message || 'Needs manual review - low confidence match'}
+            Needs manual review
           </span>
         )}
 
@@ -298,6 +314,24 @@ function DownloadItem({ download, onCancel }) {
         >
           Cancel
         </button>
+      )}
+
+      {download.status === 'pending_review' && download.result_review_id && (
+        <div className="download-actions">
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => onApproveReview(download.result_review_id)}
+            disabled={isApproving}
+          >
+            Approve
+          </button>
+          <button
+            className="btn-ghost btn-sm"
+            onClick={() => onDismissReview(download.id)}
+          >
+            Dismiss
+          </button>
+        </div>
       )}
     </div>
   )
