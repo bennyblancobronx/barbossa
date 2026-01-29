@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 from app.database import get_db
-from app.dependencies import get_current_admin_user
+from app.dependencies import get_current_admin_user, get_current_user
 from app.models.user import User
 from app.models.pending_review import PendingReview, PendingReviewStatus
 from app.schemas.review import ReviewResponse, ApproveRequest, RejectRequest
@@ -70,7 +70,7 @@ async def approve_import(
     review_id: int,
     data: ApproveRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Approve and import pending item.
 
@@ -141,7 +141,7 @@ async def reject_import(
     review_id: int,
     data: RejectRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Reject and optionally delete pending item."""
     review = db.query(PendingReview).filter(PendingReview.id == review_id).first()

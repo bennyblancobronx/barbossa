@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.147] - 2026-01-28
+
+### TL;DR
+- Allow any authenticated user to approve/reject review items (was admin-only)
+
 ## [0.1.146] - 2026-01-28
 
 ### TL;DR
