@@ -320,14 +320,20 @@ class BeetsClient:
         target_dir = self.library_path / artist / f"{album}{year_str}"
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Move or copy files
-        for file in path.iterdir():
-            if file.is_file():
-                dest = target_dir / file.name
+        # Move or copy files -- handle both flat and multi-disc (Disc 1/, etc.)
+        for item in path.iterdir():
+            dest = target_dir / item.name
+            if item.is_file():
                 if move:
-                    shutil.move(str(file), str(dest))
+                    shutil.move(str(item), str(dest))
                 else:
-                    shutil.copy2(str(file), str(dest))
+                    shutil.copy2(str(item), str(dest))
+            elif item.is_dir():
+                # Preserve subdirectories (disc folders, artwork, etc.)
+                if move:
+                    shutil.move(str(item), str(dest))
+                else:
+                    shutil.copytree(str(item), str(dest))
 
         # Tag files with provided metadata -- always use direct tagging,
         # never beet import (which can move files out of target_dir)
@@ -346,7 +352,7 @@ class BeetsClient:
 
             audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff"}
             audio_files = sorted([
-                f for f in path.iterdir()
+                f for f in path.rglob("*")
                 if f.is_file() and f.suffix.lower() in audio_extensions
             ])
 

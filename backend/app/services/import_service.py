@@ -188,7 +188,7 @@ class ImportService:
         """
         checksums = []
         audio_files = sorted([
-            f for f in path.iterdir()
+            f for f in path.rglob("*")
             if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
         ])
 
@@ -693,7 +693,7 @@ class ImportService:
                     confidence = float(match.group(1)) / 100
 
         # Count tracks
-        track_count = sum(1 for f in path.iterdir() if f.suffix.lower() in {".flac", ".mp3", ".m4a"})
+        track_count = sum(1 for f in path.rglob("*") if f.is_file() and f.suffix.lower() in {".flac", ".mp3", ".m4a"})
 
         review = PendingReview(
             path=str(path),
@@ -844,9 +844,9 @@ class ImportService:
 
         quality_service = QualityService()
 
-        # Get first audio file from new import
+        # Get first audio file from new import (recursive for multi-disc)
         new_audio_files = [
-            f for f in new_path.iterdir()
+            f for f in new_path.rglob("*")
             if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
         ]
         if not new_audio_files:
@@ -946,7 +946,7 @@ class ImportService:
         import subprocess
 
         audio_extensions = {".flac", ".mp3", ".m4a"}
-        audio_files = [f for f in album_path.iterdir() if f.suffix.lower() in audio_extensions]
+        audio_files = [f for f in album_path.rglob("*") if f.is_file() and f.suffix.lower() in audio_extensions]
 
         if not audio_files:
             return None
@@ -1037,7 +1037,7 @@ class ImportService:
         import asyncio
 
         audio_extensions = {".flac", ".mp3", ".m4a"}
-        audio_files = [f for f in album_path.iterdir() if f.suffix.lower() in audio_extensions]
+        audio_files = [f for f in album_path.rglob("*") if f.is_file() and f.suffix.lower() in audio_extensions]
 
         if not audio_files:
             return None

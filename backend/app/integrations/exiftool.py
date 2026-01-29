@@ -254,6 +254,9 @@ class ExifToolClient:
     async def get_album_metadata(self, path: Path) -> list[dict]:
         """Extract metadata from all audio files in folder.
 
+        Handles both flat albums and multi-disc albums with subdirectories
+        (e.g., Disc 1/, Disc 2/).
+
         Args:
             path: Path to album folder
 
@@ -262,10 +265,15 @@ class ExifToolClient:
         """
         tracks = []
 
-        for file in sorted(path.iterdir()):
-            if file.suffix.lower() in self.AUDIO_EXTENSIONS:
-                metadata = await self.get_metadata(file)
-                tracks.append(metadata)
+        # Collect audio files -- check top level first, then subdirs
+        audio_files = sorted(
+            f for f in path.rglob("*")
+            if f.is_file() and f.suffix.lower() in self.AUDIO_EXTENSIONS
+        )
+
+        for file in audio_files:
+            metadata = await self.get_metadata(file)
+            tracks.append(metadata)
 
         return tracks
 

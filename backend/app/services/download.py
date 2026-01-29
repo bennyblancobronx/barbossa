@@ -752,10 +752,10 @@ class DownloadService:
         # Move files
         shutil.move(str(path), str(review_path))
 
-        # Count audio files
+        # Count audio files (recursive for multi-disc albums)
         audio_extensions = {".flac", ".mp3", ".m4a", ".ogg", ".wav", ".aiff"}
         track_count = sum(
-            1 for f in review_path.iterdir()
+            1 for f in review_path.rglob("*")
             if f.is_file() and f.suffix.lower() in audio_extensions
         )
 

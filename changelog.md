@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.149] - 2026-01-29
+
+### TL;DR
+- Support multi-disc albums throughout the import pipeline (Disc 1/, Disc 2/ subfolders)
+- All audio file scans now use recursive glob instead of flat directory listing
+- Affects: exiftool metadata extraction, track counting, checksum generation, artwork extraction, review approve
+
 ## [0.1.148] - 2026-01-28
 
 ### TL;DR
