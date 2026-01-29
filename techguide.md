@@ -1082,6 +1082,11 @@ class EnrichmentService:
 - Stale staging files auto-cleaned after 7 days by maintenance task.
 - After `beet import --move`, track filenames are captured before the move so the album can still be located in the library if path normalization fails.
 
+**Orphan Album Protection:**
+- Duplicate detection (both checksum-based and metadata-based) verifies that the matched album's directory exists on disk before blocking an import.
+- If the matched album's path is missing, it is treated as an orphan (stale DB record from a failed/replaced import) and skipped.
+- Orphan matches are logged as warnings for visibility.
+
 **Auto-Enrich on Import:** When `enrich_on_import=True` (default), newly imported albums automatically queue for lyrics enrichment.
 
 ---

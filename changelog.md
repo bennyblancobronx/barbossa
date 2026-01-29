@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.145] - 2026-01-28
+
+### TL;DR
+- Fix false positive content duplicate detection against orphan album records whose files no longer exist on disk
+- Both checksum-based and metadata-based duplicate checks now verify the matched album's path exists before blocking import
+
 ## [0.1.144] - 2026-01-28
 
 ### TL;DR

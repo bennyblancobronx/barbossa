@@ -87,13 +87,26 @@ class ImportService:
         if existing and existing.album_id:
             album_record = self.db.query(Album).filter(Album.id == existing.album_id).first()
             if album_record:
-                return album_record
+                if album_record.path and Path(album_record.path).exists():
+                    return album_record
+                else:
+                    logger.warning(
+                        f"Skipping orphan album {album_record.id} '{album_record.title}' - "
+                        f"path does not exist: {album_record.path}"
+                    )
 
         # Fallback to direct album lookup
-        return self.db.query(Album).join(Artist).filter(
+        album_record = self.db.query(Album).join(Artist).filter(
             Artist.normalized_name == norm_artist,
             Album.normalized_title == norm_album
         ).first()
+        if album_record and album_record.path and not Path(album_record.path).exists():
+            logger.warning(
+                f"Skipping orphan album {album_record.id} '{album_record.title}' - "
+                f"path does not exist: {album_record.path}"
+            )
+            return None
+        return album_record
 
     async def find_duplicate_async(self, artist: str, album: str) -> Optional[Album]:
         """Async wrapper for find_duplicate."""
@@ -131,12 +144,17 @@ class ImportService:
                 album_matches[track.album_id] = []
             album_matches[track.album_id].append(track)
 
-        # Return album with most matching tracks
-        best_album_id = max(album_matches, key=lambda k: len(album_matches[k]))
-        best_album = self.db.query(Album).filter(Album.id == best_album_id).first()
-
-        if best_album:
-            return (best_album, len(album_matches[best_album_id]))
+        # Return album with most matching tracks, skipping orphans whose files
+        # no longer exist on disk (e.g. from failed imports that left DB records)
+        for album_id in sorted(album_matches, key=lambda k: len(album_matches[k]), reverse=True):
+            album = self.db.query(Album).filter(Album.id == album_id).first()
+            if album and album.path and Path(album.path).exists():
+                return (album, len(album_matches[album_id]))
+            elif album:
+                logger.warning(
+                    f"Skipping orphan album {album.id} '{album.title}' - "
+                    f"path does not exist: {album.path}"
+                )
 
         return None
 
